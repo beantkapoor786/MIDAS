@@ -5,8 +5,8 @@
 
 # ── Package Management ───────────────────────────────────────────────────────
 
-required_cran <- c("shiny", "ggplot2", "tidyverse", "data.table", "shinyjs",
-                   "shinyWidgets", "DT", "shinycssloaders", "callr")
+required_cran <- c("shiny", "ggplot2", "tidyverse", "shinyjs",
+                   "DT", "shinycssloaders", "callr")
 required_bioc <- c("dada2", "phyloseq", "Biostrings", "DECIPHER")
 
 install_if_missing <- function() {
@@ -29,12 +29,10 @@ install_if_missing()
 
 library(shiny)
 library(shinyjs)
-library(shinyWidgets)
 library(DT)
 library(shinycssloaders)
 library(ggplot2)
 library(tidyverse)
-library(data.table)
 library(dada2)
 library(phyloseq)
 library(Biostrings)
@@ -52,7 +50,7 @@ library(callr)
 # with multithread=FALSE.
 can_multithread <- .Platform$OS.type != "windows"
 
-# ── SILVA database URLs (latest v138.2) ──────────────────────────────────────
+# ── SILVA database URLs (v138.1) ──────────────────────────────────────────
 
 SILVA_GENUS_URL <- "https://zenodo.org/records/4587955/files/silva_nr99_v138.1_train_set.fa.gz"
 SILVA_SPECIES_URL <- "https://zenodo.org/records/4587955/files/silva_species_assignment_v138.1.fa.gz"
@@ -322,62 +320,36 @@ body {
   color: var(--text-primary) !important;
 }
 
-/* ── Checkbox card (matches numeric input height) ── */
-.checkbox-card {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-.checkbox-card > .control-label {
-  margin-bottom: 6px !important;
-}
-.checkbox-card .checkbox {
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  margin: 0 !important;
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  transition: border-color 0.2s ease;
-}
-.checkbox-card .checkbox:hover {
-  border-color: var(--accent-blue);
-}
-.checkbox-card .checkbox label {
-  font-size: 14px !important;
-  font-weight: 400 !important;
-  color: var(--text-primary) !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px;
-  margin: 0 !important;
-  padding: 0 !important;
-  cursor: pointer !important;
-  width: 100% !important;
-}
-.checkbox-card .checkbox input[type='checkbox'] {
-  width: 18px; height: 18px;
-  margin: 0 !important;
-  accent-color: var(--accent-blue);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-/* ── File input (Browse button) ── */
+/* ── File input (Browse button on right) ── */
 .shiny-input-container .input-group {
   display: flex !important;
   align-items: stretch !important;
+  flex-direction: row !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+/* Shiny puts btn-group first in DOM, text input second. We reorder with flex. */
+.shiny-input-container .input-group .input-group-btn {
+  order: 2 !important;
+  display: flex !important;
+  flex: 0 0 auto !important;
+  z-index: 2 !important;
 }
 .shiny-input-container .input-group .form-control[readonly] {
   background: var(--bg-input) !important;
   border: 1px solid var(--border-color) !important;
+  border-right: none !important;
   border-radius: var(--radius-sm) 0 0 var(--radius-sm) !important;
   color: var(--text-secondary) !important;
   font-family: 'JetBrains Mono', monospace !important;
   font-size: 13px !important;
   cursor: default !important;
+  order: 1 !important;
+  flex: 1 1 100px !important;
+  min-width: 100px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  box-sizing: border-box !important;
 }
 .shiny-input-container .input-group .btn-default,
 .shiny-input-container .input-group .btn-file {
@@ -388,20 +360,20 @@ body {
   font-family: 'Outfit', sans-serif !important;
   font-weight: 600 !important;
   font-size: 13px !important;
-  padding: 8px 20px !important;
+  padding: 10px 24px !important;
   cursor: pointer !important;
   transition: all 0.2s ease !important;
-  box-shadow: 0 2px 10px rgba(59,130,246,0.2) !important;
   white-space: nowrap !important;
+  overflow: visible !important;
+  min-width: fit-content !important;
 }
 .shiny-input-container .input-group .btn-default:hover,
 .shiny-input-container .input-group .btn-file:hover {
-  box-shadow: 0 4px 15px rgba(59,130,246,0.4) !important;
+  box-shadow: 0 2px 10px rgba(59,130,246,0.3) !important;
 }
 .shiny-input-container .progress {
   margin-top: 6px !important;
 }
-.shiny-input-container .input-group-btn { display: flex !important; }
 
 /* ── Buttons ── */
 .btn-primary, .btn-run {
@@ -759,6 +731,79 @@ input[type=number]::-webkit-outer-spin-button { opacity: 1; }
 }
 .irs--shiny .irs-line { background: var(--bg-input) !important; border: 1px solid var(--border-color) !important; }
 .irs--shiny .irs-grid-text { color: var(--text-muted) !important; font-size: 10px !important; }
+
+/* ── Modal styling ── */
+.modal-content {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+  color: var(--text-primary) !important;
+}
+.modal-header {
+  border-bottom: 1px solid var(--border-color) !important;
+  padding: 20px 24px !important;
+}
+.modal-header .modal-title {
+  font-family: 'Outfit', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 18px !important;
+  color: var(--text-primary) !important;
+}
+.modal-header .close {
+  color: var(--text-muted) !important;
+  opacity: 0.8 !important;
+  text-shadow: none !important;
+}
+.modal-body {
+  padding: 24px !important;
+  color: var(--text-secondary) !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+.modal-footer {
+  border-top: 1px solid var(--border-color) !important;
+  padding: 16px 24px !important;
+  display: flex !important;
+  gap: 12px !important;
+  justify-content: flex-end !important;
+}
+.modal-backdrop { background: #000 !important; }
+.modal-backdrop.in { opacity: 0.7 !important; }
+
+.session-info-card {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin: 12px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.session-info-card .info-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.session-info-card .info-value {
+  color: var(--accent-cyan);
+}
+
+/* ── Rerun warning banner ── */
+.rerun-warning {
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--accent-amber);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 "
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -950,13 +995,11 @@ ui <- fluidPage(
         div(class = "grid-4", style = "margin-top: 12px;",
           numericInput("truncQ", "truncQ", value = 2, min = 0),
           numericInput("maxN", "maxN", value = 0, min = 0),
-          div(class = "checkbox-card",
-            tags$label(class = "control-label", "Remove PhiX"),
-            checkboxInput("rm_phix", "Enabled", value = TRUE)
+          div(style = "display:flex; align-items:flex-end; padding-bottom: 8px;",
+            checkboxInput("rm_phix", "Remove PhiX", value = TRUE)
           ),
-          div(class = "checkbox-card",
-            tags$label(class = "control-label", "Compress Output"),
-            checkboxInput("compress_out", "Enabled", value = TRUE)
+          div(style = "display:flex; align-items:flex-end; padding-bottom: 8px;",
+            checkboxInput("compress_out", "Compress Output", value = TRUE)
           )
         ),
         div(style = "margin-top: 16px;",
@@ -1158,16 +1201,31 @@ ui <- fluidPage(
         div(class = "card-description",
           "Build a phyloseq object for downstream analysis. Optionally upload sample metadata."
         ),
-        div(class = "grid-2",
-          div(
-            fileInput("metadata_file", "Upload Sample Metadata (CSV/TSV)",
-                      accept = c(".csv", ".tsv", ".txt"))
-          ),
-          div(style = "display:flex; align-items:flex-end; padding-bottom: 15px;",
-            actionButton("btn_phyloseq", "Build Phyloseq Object", class = "btn-primary",
-                         icon = icon("cubes"))
-          )
+        div(style = "margin-bottom: 12px;",
+          fileInput("metadata_file", "Upload Sample Metadata (CSV/TSV)",
+                    accept = c(".csv", ".tsv", ".txt"))
+        ),
+        uiOutput("metadata_vartype_ui"),
+        div(style = "margin-top: 16px;",
+          actionButton("btn_phyloseq", "Build Phyloseq Object", class = "btn-primary",
+                       icon = icon("cubes"))
         )
+      ),
+
+      div(class = "card",
+        div(class = "card-header",
+          div(class = "icon cyan", icon("balance-scale")),
+          "Data Transformation"
+        ),
+        div(class = "card-description",
+          "Choose how to normalize your data before visualization. Rarefaction subsamples all samples to an equal depth. Relative abundance converts counts to proportions."
+        ),
+        uiOutput("transform_ui"),
+        div(style = "margin-top: 16px;",
+          actionButton("btn_transform", "Apply Transformation", class = "btn-primary",
+                       icon = icon("sync"))
+        ),
+        uiOutput("transform_status")
       ),
 
       div(class = "card",
@@ -1193,20 +1251,31 @@ ui <- fluidPage(
             ),
             plotOutput("ordination_plot", height = "500px") %>% withSpinner(type = 6, color = "#3b82f6"),
             div(style = "margin-top: 12px;",
-              downloadButton("dl_ord_png", "Download Ordination Plot (PNG)", class = "btn-download")
+              downloadButton("dl_ord_png", "Download NMDS Plot (PNG)", class = "btn-download")
             )
           ),
-          tabPanel("Bar Plot",
+          tabPanel("Ordination (PCoA)",
+            div(class = "grid-2", style = "margin-top:12px; margin-bottom:12px;",
+              selectInput("pcoa_color", "Color by", choices = NULL),
+              selectInput("pcoa_distance", "Distance Method",
+                choices = c("bray", "jaccard", "unifrac", "wunifrac"), selected = "bray")
+            ),
+            plotOutput("pcoa_plot", height = "500px") %>% withSpinner(type = 6, color = "#3b82f6"),
+            div(style = "margin-top: 12px;",
+              downloadButton("dl_pcoa_png", "Download PCoA Plot (PNG)", class = "btn-download")
+            )
+          ),
+          tabPanel("Abundance Plot",
             div(class = "grid-3", style = "margin-top:12px; margin-bottom:12px;",
               selectInput("bar_x", "X-axis variable", choices = NULL),
               selectInput("bar_fill", "Fill by Taxonomic Rank",
                 choices = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus"),
                 selected = "Family"),
-              numericInput("bar_top_n", "Top N Taxa", value = 20, min = 5, max = 100)
+              numericInput("bar_top_n", "Top N Taxa", value = 10, min = 5, max = 100)
             ),
             plotOutput("bar_plot", height = "500px") %>% withSpinner(type = 6, color = "#3b82f6"),
             div(style = "margin-top: 12px;",
-              downloadButton("dl_bar_png", "Download Bar Plot (PNG)", class = "btn-download")
+              downloadButton("dl_bar_png", "Download Abundance Plot (PNG)", class = "btn-download")
             )
           )
         )
@@ -1249,6 +1318,7 @@ server <- function(input, output, session) {
   rv <- reactiveValues(
     current_step = 1,
     completed_steps = c(),
+    startup_done = NULL,
     # File data
     fnFs = NULL, fnRs = NULL, sample_names = NULL,
     all_files = NULL,
@@ -1271,54 +1341,21 @@ server <- function(input, output, session) {
     # Taxonomy
     taxa = NULL,
     # Phyloseq
-    ps = NULL, samdf = NULL,
+    ps = NULL, ps_transformed = NULL, transform_method = NULL, samdf = NULL,
     # Tracking
     track = NULL,
     # Logs
     log1 = "", log2 = "", log3 = "", log4 = "", log5 = "", log6 = "", log7 = "",
-    # Step progress: list(pct, label, status, start_time, eta)
-    prog3 = list(pct = 0, label = "", status = "idle", start_time = NULL, eta = ""),
-    prog4 = list(pct = 0, label = "", status = "idle", start_time = NULL, eta = ""),
-    prog5 = list(pct = 0, label = "", status = "idle", start_time = NULL, eta = ""),
-    prog6 = list(pct = 0, label = "", status = "idle", start_time = NULL, eta = "")
+    # Step progress: list(pct, label, status)
+    prog3 = list(pct = 0, label = "", status = "idle"),
+    prog4 = list(pct = 0, label = "", status = "idle"),
+    prog5 = list(pct = 0, label = "", status = "idle"),
+    prog6 = list(pct = 0, label = "", status = "idle")
   )
 
-  # ── Helper: update step progress with ETA ──
+  # ── Helper: update step progress ──
   set_progress <- function(step, pct, label, status = "running") {
-    prog_name <- paste0("prog", step)
-    old <- rv[[prog_name]]
-    start_time <- old$start_time
-    eta <- ""
-
-    if (status == "running" && pct == 0) {
-      start_time <- Sys.time()
-    } else if (!is.null(start_time)) {
-      start_time <- old$start_time
-    }
-
-    # Estimate time remaining
-    if (status == "running" && pct > 5 && !is.null(start_time)) {
-      elapsed <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
-      total_est <- elapsed / (pct / 100)
-      remaining <- total_est - elapsed
-      if (remaining > 60) {
-        eta <- paste0("~", round(remaining / 60, 1), " min remaining")
-      } else if (remaining > 0) {
-        eta <- paste0("~", round(remaining), "s remaining")
-      }
-    } else if (status == "done") {
-      if (!is.null(start_time)) {
-        elapsed <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
-        if (elapsed > 60) {
-          eta <- paste0("Completed in ", round(elapsed / 60, 1), " min")
-        } else {
-          eta <- paste0("Completed in ", round(elapsed), "s")
-        }
-      }
-    }
-
-    rv[[prog_name]] <- list(pct = pct, label = label, status = status,
-                            start_time = start_time, eta = eta)
+    rv[[paste0("prog", step)]] <- list(pct = pct, label = label, status = status)
   }
 
   # ── Helper: render progress bar UI ──
@@ -1336,14 +1373,13 @@ server <- function(input, output, session) {
       "error" = "\u2717",
       ""
     )
-    pct_text <- if (prog$status == "running" && prog$pct > 0) paste0(prog$pct, "%") else ""
-    eta_text <- if (nzchar(prog$eta)) prog$eta else ""
-    right_text <- paste(c(pct_text, eta_text)[nzchar(c(pct_text, eta_text))], collapse = "  \u00b7  ")
+    pct_text <- if (prog$status == "running" && prog$pct > 0) paste0(prog$pct, "%") else
+                if (prog$status == "done") "Done" else ""
 
     div(class = "step-progress-container",
       div(class = "step-progress-label",
         span(paste0(status_icon, "  ", prog$label)),
-        span(class = "progress-status", right_text)
+        span(class = "progress-status", pct_text)
       ),
       div(class = "step-progress-track",
         div(class = fill_class, style = paste0("width: ", prog$pct, "%;"))
@@ -1355,6 +1391,263 @@ server <- function(input, output, session) {
   output$progress_step4 <- renderUI({ render_progress_bar(rv$prog4) })
   output$progress_step5 <- renderUI({ render_progress_bar(rv$prog5) })
   output$progress_step6 <- renderUI({ render_progress_bar(rv$prog6) })
+
+  # ── Session Save/Load ──────────────────────────────────────────────────
+
+  SESSION_FILENAME <- "dada2_session.RData"
+
+  get_session_path <- function() {
+    path <- trimws(isolate(input$data_path))
+    if (nzchar(path) && dir.exists(path)) {
+      return(file.path(path, SESSION_FILENAME))
+    }
+    return(NULL)
+  }
+
+  auto_save_session <- function() {
+    session_path <- get_session_path()
+    if (is.null(session_path)) return()
+
+    tryCatch({
+      # Collect all saveable state (exclude background process handles)
+      session_data <- list(
+        data_path = isolate(input$data_path),
+        completed_steps = rv$completed_steps,
+        current_step = rv$current_step,
+        fnFs = rv$fnFs, fnRs = rv$fnRs,
+        sample_names = rv$sample_names,
+        all_files = rv$all_files,
+        filtFs = rv$filtFs, filtRs = rv$filtRs,
+        filter_out = rv$filter_out,
+        errF = rv$errF, errR = rv$errR,
+        dadaFs = rv$dadaFs, dadaRs = rv$dadaRs,
+        mergers = rv$mergers,
+        seqtab = rv$seqtab, seqtab_nochim = rv$seqtab_nochim,
+        taxa = rv$taxa,
+        ps = rv$ps, ps_transformed = rv$ps_transformed,
+        transform_method = rv$transform_method, samdf = rv$samdf,
+        track = rv$track,
+        log1 = rv$log1, log2 = rv$log2, log3 = rv$log3,
+        log4 = rv$log4, log5 = rv$log5, log6 = rv$log6, log7 = rv$log7,
+        # Save input parameters for reproducibility
+        fwd_pattern = isolate(input$fwd_pattern),
+        rev_pattern = isolate(input$rev_pattern),
+        sample_delim = isolate(input$sample_delim),
+        sample_element_from = isolate(input$sample_element_from),
+        sample_element_to = isolate(input$sample_element_to),
+        save_timestamp = Sys.time()
+      )
+      save(session_data, file = session_path)
+      add_log(rv$current_step, paste("Session auto-saved to:", session_path), "success")
+    }, error = function(e) {
+      add_log(rv$current_step, paste("Session save failed:", e$message), "warn")
+    })
+  }
+
+  restore_session <- function(session_path) {
+    tryCatch({
+      load(session_path)  # loads session_data
+
+      # Restore reactive values
+      rv$completed_steps <- session_data$completed_steps
+      rv$fnFs <- session_data$fnFs
+      rv$fnRs <- session_data$fnRs
+      rv$sample_names <- session_data$sample_names
+      rv$all_files <- session_data$all_files
+      rv$filtFs <- session_data$filtFs
+      rv$filtRs <- session_data$filtRs
+      rv$filter_out <- session_data$filter_out
+      rv$errF <- session_data$errF
+      rv$errR <- session_data$errR
+      rv$dadaFs <- session_data$dadaFs
+      rv$dadaRs <- session_data$dadaRs
+      rv$mergers <- session_data$mergers
+      rv$seqtab <- session_data$seqtab
+      rv$seqtab_nochim <- session_data$seqtab_nochim
+      rv$taxa <- session_data$taxa
+      rv$ps <- session_data$ps
+      rv$ps_transformed <- session_data$ps_transformed
+      rv$transform_method <- session_data$transform_method
+      rv$samdf <- session_data$samdf
+      rv$track <- session_data$track
+      rv$log1 <- session_data$log1
+      rv$log2 <- session_data$log2
+      rv$log3 <- session_data$log3
+      rv$log4 <- session_data$log4
+      rv$log5 <- session_data$log5
+      rv$log6 <- session_data$log6
+      rv$log7 <- session_data$log7
+
+      # Restore UI inputs
+      updateTextInput(session, "data_path", value = session_data$data_path)
+      if (!is.null(session_data$fwd_pattern))
+        updateTextInput(session, "fwd_pattern", value = session_data$fwd_pattern)
+      if (!is.null(session_data$rev_pattern))
+        updateTextInput(session, "rev_pattern", value = session_data$rev_pattern)
+      if (!is.null(session_data$sample_delim))
+        updateTextInput(session, "sample_delim", value = session_data$sample_delim)
+      if (!is.null(session_data$sample_element_from))
+        updateNumericInput(session, "sample_element_from", value = session_data$sample_element_from)
+      if (!is.null(session_data$sample_element_to))
+        updateNumericInput(session, "sample_element_to", value = session_data$sample_element_to)
+
+      # Set quality plot flags if those steps were completed
+      if (2 %in% rv$completed_steps) rv$qplots_ready <- TRUE
+      if (3 %in% rv$completed_steps) rv$filt_qplots_ready <- TRUE
+
+      # Navigate to first incomplete step
+      all_steps <- 1:7
+      next_step <- min(setdiff(all_steps, rv$completed_steps), 7)
+      rv$current_step <- next_step
+
+      # Validate file paths
+      data_path <- session_data$data_path
+      paths_valid <- TRUE
+      if (!is.null(data_path) && !dir.exists(data_path)) {
+        paths_valid <- FALSE
+      }
+      if (!is.null(rv$fnFs) && length(rv$fnFs) > 0 && !file.exists(rv$fnFs[1])) {
+        paths_valid <- FALSE
+      }
+
+      if (!paths_valid) {
+        showModal(modalDialog(
+          title = "File Paths Changed",
+          div(class = "rerun-warning",
+            icon("exclamation-triangle"),
+            "The original FASTQ directory or files could not be found. Please update the path in Step 1."
+          ),
+          div(style = "color: var(--text-secondary); font-size: 13px;",
+            p(paste("Original path:", data_path)),
+            p("Your pipeline state has been restored, but you may need to update the directory path and re-scan files if the data has moved.")
+          ),
+          footer = tagList(
+            actionButton("modal_path_ok", "Go to Step 1", class = "btn-primary")
+          ),
+          easyClose = FALSE
+        ))
+      }
+
+      add_log(next_step, paste("Session restored. Resuming from Step", next_step, "."), "success")
+      return(TRUE)
+    }, error = function(e) {
+      showNotification(paste("Failed to restore session:", e$message), type = "error")
+      return(FALSE)
+    })
+  }
+
+  # Handle path update modal dismiss
+  observeEvent(input$modal_path_ok, {
+    removeModal()
+    rv$current_step <- 1
+  })
+
+  # ── Startup: check for existing session ──
+  observe({
+    # Run once on startup
+    if (!is.null(rv$startup_done)) return()
+    rv$startup_done <- TRUE
+
+    # Check common locations for session files
+    # We can't check data_path yet (empty on startup), so check home dir
+    # The user will see the startup modal
+    showModal(modalDialog(
+      title = "DADA2 Pipeline",
+      div(style = "text-align: center; margin-bottom: 16px;",
+        div(class = "app-logo", style = "margin: 0 auto 12px; width: 56px; height: 56px; font-size: 20px;", "16S"),
+        div(style = "font-size: 16px; font-weight: 500; color: var(--text-primary);", "Welcome to the DADA2 Analysis Pipeline")
+      ),
+      div(style = "color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;",
+        p("Start a new analysis or load a previous session."),
+        p("To resume a previous session, enter the path to your FASTQ directory below. If a saved session exists there, it will be restored.")
+      ),
+      textInput("resume_path", "FASTQ Directory (to check for saved session)",
+                placeholder = "/path/to/your/fastq/files"),
+      uiOutput("resume_session_info"),
+      footer = tagList(
+        actionButton("btn_new_analysis", "New Analysis", class = "btn-secondary"),
+        actionButton("btn_resume_session", "Resume Session", class = "btn-primary")
+      ),
+      easyClose = FALSE
+    ))
+  })
+
+  # Show session info when path is entered
+  output$resume_session_info <- renderUI({
+    req(input$resume_path)
+    path <- trimws(input$resume_path)
+    session_file <- file.path(path, SESSION_FILENAME)
+
+    if (file.exists(session_file)) {
+      tryCatch({
+        load(session_file)
+        step_names <- c("Setup & Files", "Quality Profiles", "Filter & Trim",
+                        "Dereplication", "Merge & Chimeras", "Taxonomy", "Phyloseq & Export")
+        completed <- session_data$completed_steps
+        last_step <- if (length(completed) > 0) max(completed) else 0
+        last_step_name <- if (last_step > 0) step_names[last_step] else "None"
+        timestamp <- format(session_data$save_timestamp, "%Y-%m-%d %H:%M:%S")
+        n_samples <- length(session_data$sample_names)
+
+        div(class = "session-info-card",
+          div(class = "info-label", "Saved Session Found"),
+          div(class = "info-value", style = "margin-top: 6px;",
+            tags$strong("Last completed step: "), last_step_name, tags$br(),
+            tags$strong("Samples: "), n_samples, tags$br(),
+            tags$strong("Saved: "), timestamp, tags$br(),
+            tags$strong("Steps completed: "), paste(completed, collapse = ", ")
+          )
+        )
+      }, error = function(e) {
+        div(style = "color: var(--accent-rose); font-size: 13px; margin-top: 8px;",
+          paste("Found session file but could not read it:", e$message))
+      })
+    } else if (dir.exists(path)) {
+      div(style = "color: var(--text-muted); font-size: 13px; margin-top: 8px;",
+        "No saved session found in this directory.")
+    } else {
+      div(style = "color: var(--accent-rose); font-size: 13px; margin-top: 8px;",
+        "Directory does not exist.")
+    }
+  })
+
+  # New analysis button
+  observeEvent(input$btn_new_analysis, {
+    removeModal()
+  })
+
+  # Resume session button
+  observeEvent(input$btn_resume_session, {
+    req(input$resume_path)
+    path <- trimws(input$resume_path)
+    session_file <- file.path(path, SESSION_FILENAME)
+
+    if (file.exists(session_file)) {
+      removeModal()
+      restore_session(session_file)
+    } else {
+      showNotification("No saved session found at that path.", type = "warning")
+    }
+  })
+
+  # ── Re-run warning when going back to completed steps ──
+  observeEvent(input$nav_step, {
+    step <- input$nav_step
+    if (step %in% rv$completed_steps && step < max(rv$completed_steps, 0)) {
+      # User is going back to a completed step — warn about invalidation
+      later_steps <- rv$completed_steps[rv$completed_steps > step]
+      if (length(later_steps) > 0) {
+        step_names <- c("Setup & Files", "Quality Profiles", "Filter & Trim",
+                        "Dereplication", "Merge & Chimeras", "Taxonomy", "Phyloseq & Export")
+        invalidated <- paste(step_names[later_steps], collapse = ", ")
+        showNotification(
+          paste0("Re-running this step will invalidate subsequent completed steps: ", invalidated, "."),
+          type = "warning", duration = 8
+        )
+      }
+    }
+    rv$current_step <- step
+  })
 
   # ── Helper: append log ──
   add_log <- function(step, msg, type = "info") {
@@ -1377,10 +1670,6 @@ server <- function(input, output, session) {
   output$log7 <- renderUI(HTML(rv$log7))
 
   # ── Navigation ──────────────────────────────────────────────────────────
-  observeEvent(input$nav_step, {
-    rv$current_step <- input$nav_step
-  })
-
   observe({
     step <- rv$current_step
     completed <- rv$completed_steps
@@ -1499,6 +1788,7 @@ server <- function(input, output, session) {
     add_log(1, paste("Extracted", length(sample_names), "sample names using elements",
                      elem_from, "to", elem_to, "(delimiter: '", delim, "')."), "success")
     rv$completed_steps <- union(rv$completed_steps, 1)
+      auto_save_session()
   })
 
   # Live preview of sample name extraction
@@ -1570,6 +1860,7 @@ server <- function(input, output, session) {
 
     add_log(2, "Quality plots generated. Use these to set truncation lengths in Step 3.", "success")
     rv$completed_steps <- union(rv$completed_steps, 2)
+      auto_save_session()
   })
 
   # Only show quality plot cards after button is pressed
@@ -1678,6 +1969,7 @@ server <- function(input, output, session) {
         add_log(3, paste("Filtering complete.", total_out, "/", total_in, "reads passed (", pct, "%)."), "success")
         set_progress(3, 100, "Filter & trim complete", "done")
         rv$completed_steps <- union(rv$completed_steps, 3)
+      auto_save_session()
       }, error = function(e) {
         add_log(3, paste("Error:", e$message), "error")
         set_progress(3, 0, paste("Error:", e$message), "error")
@@ -1756,7 +2048,7 @@ server <- function(input, output, session) {
       req(rv$fnFs)
       n <- min(input$qp_n_samples, length(rv$fnFs))
       p <- plotQualityProfile(rv$fnFs[1:n]) + ggtitle("Forward Reads Quality Profile")
-      ggsave(file, plot = p, width = 10, height = 6, dpi = 150)
+      ggsave(file, plot = p, width = 10, height = 6, dpi = 300, bg = "white")
     }
   )
   output$dl_raw_qplot_rev <- downloadHandler(
@@ -1765,7 +2057,7 @@ server <- function(input, output, session) {
       req(rv$fnRs)
       n <- min(input$qp_n_samples, length(rv$fnRs))
       p <- plotQualityProfile(rv$fnRs[1:n]) + ggtitle("Reverse Reads Quality Profile")
-      ggsave(file, plot = p, width = 10, height = 6, dpi = 150)
+      ggsave(file, plot = p, width = 10, height = 6, dpi = 300, bg = "white")
     }
   )
 
@@ -1776,7 +2068,7 @@ server <- function(input, output, session) {
       req(rv$filtFs)
       n <- min(input$qp_filt_n_samples, length(rv$filtFs))
       p <- plotQualityProfile(rv$filtFs[1:n]) + ggtitle("Forward Reads Quality (Post-Filter)")
-      ggsave(file, plot = p, width = 10, height = 6, dpi = 150)
+      ggsave(file, plot = p, width = 10, height = 6, dpi = 300, bg = "white")
     }
   )
   output$dl_filt_qplot_rev <- downloadHandler(
@@ -1785,7 +2077,7 @@ server <- function(input, output, session) {
       req(rv$filtRs)
       n <- min(input$qp_filt_n_samples, length(rv$filtRs))
       p <- plotQualityProfile(rv$filtRs[1:n]) + ggtitle("Reverse Reads Quality (Post-Filter)")
-      ggsave(file, plot = p, width = 10, height = 6, dpi = 150)
+      ggsave(file, plot = p, width = 10, height = 6, dpi = 300, bg = "white")
     }
   )
 
@@ -1858,6 +2150,7 @@ server <- function(input, output, session) {
           add_log(4, "Reverse reads dereplicated.", "success")
           set_progress(4, 100, "Error learning & dereplication complete", "done")
           rv$completed_steps <- union(rv$completed_steps, 4)
+      auto_save_session()
           shinyjs::enable("btn_denoise")
           rv$bg_denoise <- NULL
         }
@@ -1966,6 +2259,7 @@ server <- function(input, output, session) {
 
         set_progress(5, 100, "Merge & chimera removal complete", "done")
         rv$completed_steps <- union(rv$completed_steps, 5)
+      auto_save_session()
       }, error = function(e) {
         add_log(5, paste("Error:", e$message), "error")
         set_progress(5, 0, paste("Error:", e$message), "error")
@@ -2169,6 +2463,7 @@ server <- function(input, output, session) {
         add_log(6, paste("Taxonomy assigned to", nrow(taxa), "ASVs."), "success")
         set_progress(6, 100, "Taxonomy assignment complete", "done")
         rv$completed_steps <- union(rv$completed_steps, 6)
+      auto_save_session()
       }, error = function(e) {
         add_log(6, paste("Error:", e$message), "error")
         set_progress(6, 0, paste("Error:", e$message), "error")
@@ -2191,6 +2486,48 @@ server <- function(input, output, session) {
   # STEP 7: Phyloseq & Visualization
   # ═══════════════════════════════════════════════════════════════════════
 
+  # ── Metadata variable type selection (factor vs continuous) ──
+  output$metadata_vartype_ui <- renderUI({
+    req(input$metadata_file)
+    meta_path <- input$metadata_file$datapath
+    ext <- tools::file_ext(input$metadata_file$name)
+    samdf <- tryCatch({
+      if (ext %in% c("csv")) read.csv(meta_path, row.names = 1, stringsAsFactors = FALSE)
+      else read.delim(meta_path, row.names = 1, stringsAsFactors = FALSE)
+    }, error = function(e) NULL)
+    if (is.null(samdf) || ncol(samdf) == 0) return(NULL)
+
+    rv$meta_preview <- samdf
+    var_names <- colnames(samdf)
+
+    # Auto-detect: if numeric with many unique values → continuous, else factor
+    auto_types <- sapply(var_names, function(v) {
+      col <- samdf[[v]]
+      if (is.numeric(col) && length(unique(col)) > 5) "continuous" else "factor"
+    })
+
+    div(
+      div(class = "card-header", style = "margin-bottom: 8px;",
+        div(class = "icon amber", icon("sliders-h")),
+        "Variable Types"
+      ),
+      div(class = "card-description",
+        "Specify which metadata variables should be treated as categorical (factor) vs continuous."
+      ),
+      div(style = "display: grid; grid-template-columns: 1fr 1fr; gap: 8px;",
+        lapply(var_names, function(v) {
+          div(style = "display: flex; align-items: center; gap: 8px; padding: 6px 0;",
+            tags$span(style = "font-size: 13px; color: var(--text-primary); min-width: 120px;
+                              font-family: 'JetBrains Mono', monospace;", v),
+            radioButtons(paste0("vartype_", v), label = NULL, inline = TRUE,
+              choices = c("Factor" = "factor", "Continuous" = "continuous"),
+              selected = auto_types[v])
+          )
+        })
+      )
+    )
+  })
+
   observeEvent(input$btn_phyloseq, {
     req(rv$seqtab_nochim, rv$taxa)
     add_log(7, "Building phyloseq object...")
@@ -2206,9 +2543,21 @@ server <- function(input, output, session) {
         } else {
           samdf <- read.delim(meta_path, row.names = 1, stringsAsFactors = FALSE)
         }
+
+        # Apply factor/continuous types from user selection
+        for (v in colnames(samdf)) {
+          vartype_input <- input[[paste0("vartype_", v)]]
+          if (!is.null(vartype_input)) {
+            if (vartype_input == "factor") {
+              samdf[[v]] <- as.factor(samdf[[v]])
+            } else {
+              samdf[[v]] <- as.numeric(as.character(samdf[[v]]))
+            }
+          }
+        }
+
         add_log(7, paste("Loaded metadata with", nrow(samdf), "samples and", ncol(samdf), "variables."), "success")
       } else {
-        # Construct minimal metadata from sample names
         samdf <- data.frame(SampleID = rv$sample_names, row.names = rv$sample_names)
         add_log(7, "No metadata uploaded. Using sample names as metadata.", "info")
       }
@@ -2231,17 +2580,102 @@ server <- function(input, output, session) {
       rv$ps <- ps
       add_log(7, paste("Phyloseq object created:", ntaxa(ps), "taxa,", nsamples(ps), "samples."), "success")
 
-      # Update dropdown choices
+      # Update dropdown choices — only factor variables for grouping
       meta_vars <- colnames(samdf)
-      updateSelectInput(session, "alpha_x", choices = meta_vars, selected = meta_vars[1])
+      factor_vars <- meta_vars[sapply(samdf, is.factor)]
+      if (length(factor_vars) == 0) factor_vars <- meta_vars  # fallback
+
+      updateSelectInput(session, "alpha_x", choices = factor_vars, selected = factor_vars[1])
       updateSelectInput(session, "ord_color", choices = c("None", meta_vars), selected = ifelse(length(meta_vars) > 1, meta_vars[1], "None"))
-      updateSelectInput(session, "bar_x", choices = meta_vars, selected = meta_vars[1])
+      updateSelectInput(session, "pcoa_color", choices = c("None", meta_vars), selected = ifelse(length(meta_vars) > 1, meta_vars[1], "None"))
+      updateSelectInput(session, "bar_x", choices = factor_vars, selected = factor_vars[1])
 
       rv$completed_steps <- union(rv$completed_steps, 7)
+      auto_save_session()
     }, error = function(e) {
       add_log(7, paste("Error:", e$message), "error")
     })
   })
+
+  # ── Transform UI (shown after phyloseq is built) ──
+  output$transform_ui <- renderUI({
+    req(rv$ps)
+    min_depth <- min(sample_sums(rv$ps))
+    tagList(
+      div(class = "grid-2",
+        div(
+          radioButtons("transform_method", "Transformation Method",
+            choices = c("Rarefaction (subsample to even depth)" = "rarefy",
+                        "Relative Abundance (proportions)" = "relative",
+                        "No transformation (raw counts)" = "none"),
+            selected = "rarefy")
+        ),
+        div(
+          conditionalPanel(
+            condition = "input.transform_method == 'rarefy'",
+            numericInput("rarefy_depth", "Rarefaction Depth",
+                         value = min_depth, min = 1, step = 100),
+            div(style = "font-size: 12px; color: var(--text-muted); margin-top: 4px;",
+              paste0("Minimum sample depth: ", format(min_depth, big.mark = ","),
+                     " reads. Samples below this depth will be removed."))
+          )
+        )
+      )
+    )
+  })
+
+  output$transform_status <- renderUI({
+    req(rv$ps_transformed)
+    method <- rv$transform_method
+    n_samples <- nsamples(rv$ps_transformed)
+    n_taxa <- ntaxa(rv$ps_transformed)
+    method_label <- switch(method,
+      "rarefy" = paste0("Rarefied to ", format(min(sample_sums(rv$ps_transformed)), big.mark = ","), " reads/sample"),
+      "relative" = "Relative abundance (proportions)",
+      "none" = "Raw counts (no transformation)",
+      method
+    )
+    div(class = "stat-card", style = "margin-top: 16px; text-align: left; padding: 14px 18px;",
+      div(style = "display: flex; align-items: center; gap: 8px; margin-bottom: 4px;",
+        icon("check-circle", style = "color: var(--accent-emerald);"),
+        span(style = "font-size: 14px; font-weight: 500; color: var(--accent-emerald);",
+             "Transformation Applied")
+      ),
+      div(style = "font-size: 13px; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;",
+        paste0(method_label, " — ", n_samples, " samples, ", n_taxa, " ASVs"))
+    )
+  })
+
+  observeEvent(input$btn_transform, {
+    req(rv$ps)
+    method <- input$transform_method
+    add_log(7, paste("Applying transformation:", method, "..."))
+
+    tryCatch({
+      if (method == "rarefy") {
+        depth <- input$rarefy_depth
+        ps_t <- rarefy_even_depth(rv$ps, sample.size = depth,
+                                   rngseed = 42, replace = FALSE, trimOTUs = TRUE, verbose = FALSE)
+        add_log(7, paste("Rarefied to", depth, "reads/sample.", nsamples(ps_t), "samples,",
+                         ntaxa(ps_t), "ASVs retained."), "success")
+      } else if (method == "relative") {
+        ps_t <- transform_sample_counts(rv$ps, function(x) x / sum(x))
+        add_log(7, paste("Converted to relative abundance.", nsamples(ps_t), "samples."), "success")
+      } else {
+        ps_t <- rv$ps
+        add_log(7, "Using raw counts (no transformation).", "info")
+      }
+      rv$ps_transformed <- ps_t
+      rv$transform_method <- method
+    }, error = function(e) {
+      add_log(7, paste("Transformation error:", e$message), "error")
+    })
+  })
+
+  # ── Helper: get the active phyloseq object (transformed if available) ──
+  get_active_ps <- function() {
+    if (!is.null(rv$ps_transformed)) rv$ps_transformed else rv$ps
+  }
 
   # ── Alpha Diversity Plot (manual calculation, one point per sample) ──
   make_alpha_plot <- function(ps, x_var) {
@@ -2303,7 +2737,7 @@ server <- function(input, output, session) {
 
   output$alpha_plot <- renderPlot({
     req(rv$ps, input$alpha_x)
-    make_alpha_plot(rv$ps, input$alpha_x)
+    make_alpha_plot(get_active_ps(), input$alpha_x)
   })
 
   # ── Ordination Plot ──
@@ -2330,14 +2764,14 @@ server <- function(input, output, session) {
   output$ordination_plot <- renderPlot({
     req(rv$ps, input$ord_color)
     tryCatch({
-      make_ord_plot(rv$ps, input$ord_color, input$ord_distance)
+      make_ord_plot(get_active_ps(), input$ord_color, input$ord_distance)
     }, error = function(e) {
       plot.new()
       text(0.5, 0.5, paste("Ordination error:", e$message), col = "#f43f5e", cex = 1.2)
     })
   })
 
-  # ── Bar Plot ──
+  # ── Abundance Plot ──
   make_bar_plot <- function(ps, x_var, fill_var, top_n) {
     top_taxa <- names(sort(taxa_sums(ps), decreasing = TRUE))[1:top_n]
     ps_top <- transform_sample_counts(ps, function(OTU) OTU / sum(OTU))
@@ -2359,7 +2793,45 @@ server <- function(input, output, session) {
 
   output$bar_plot <- renderPlot({
     req(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
-    make_bar_plot(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
+    make_bar_plot(get_active_ps(), input$bar_x, input$bar_fill, input$bar_top_n)
+  })
+
+  # ── PCoA Ordination Plot ──
+  make_pcoa_plot <- function(ps, color_var, distance) {
+    ps_prop <- transform_sample_counts(ps, function(otu) otu / sum(otu))
+    ord <- ordinate(ps_prop, method = "PCoA", distance = distance)
+    cv <- if (color_var == "None") NULL else color_var
+    # Get axis labels with variance explained
+    evals <- ord$values$Eigenvalues
+    var_explained <- round(evals / sum(evals) * 100, 1)
+    ax1_lab <- paste0("PCoA1 [", var_explained[1], "%]")
+    ax2_lab <- paste0("PCoA2 [", var_explained[2], "%]")
+
+    p <- plot_ordination(ps_prop, ord, color = cv, title = paste("PCoA —", distance))
+    p + geom_point(size = 4, alpha = 0.8) +
+      labs(x = ax1_lab, y = ax2_lab) +
+      theme_minimal(base_size = 14) +
+      theme(
+        plot.background = element_rect(fill = "#1a2332", color = NA),
+        panel.background = element_rect(fill = "#1a2332", color = NA),
+        legend.background = element_rect(fill = "#1a2332", color = NA),
+        legend.key = element_rect(fill = "#1a2332", color = NA),
+        text = element_text(color = "#e8ecf4"),
+        axis.text = element_text(color = "#8899b0"),
+        panel.grid.major = element_line(color = "#2a3a52"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(size = 14, face = "bold")
+      )
+  }
+
+  output$pcoa_plot <- renderPlot({
+    req(rv$ps, input$pcoa_color)
+    tryCatch({
+      make_pcoa_plot(get_active_ps(), input$pcoa_color, input$pcoa_distance)
+    }, error = function(e) {
+      plot.new()
+      text(0.5, 0.5, paste("PCoA error:", e$message), col = "#f43f5e", cex = 1.2)
+    })
   })
 
   # ── Downloads ──────────────────────────────────────────────────────────
@@ -2461,8 +2933,8 @@ server <- function(input, output, session) {
     filename = function() paste0("Alpha_Diversity_", Sys.Date(), ".png"),
     content = function(file) {
       req(rv$ps, input$alpha_x)
-      p <- make_alpha_plot(rv$ps, input$alpha_x)
-      ggsave(file, plot = p, width = 12, height = 6, dpi = 150, bg = "#1a2332")
+      p <- make_alpha_plot(get_active_ps(), input$alpha_x)
+      ggsave(file, plot = p, width = 12, height = 6, dpi = 300, bg = "#1a2332")
     }
   )
 
@@ -2471,8 +2943,8 @@ server <- function(input, output, session) {
     content = function(file) {
       req(rv$ps, input$ord_color)
       tryCatch({
-        p <- make_ord_plot(rv$ps, input$ord_color, input$ord_distance)
-        ggsave(file, plot = p, width = 10, height = 8, dpi = 150, bg = "#1a2332")
+        p <- make_ord_plot(get_active_ps(), input$ord_color, input$ord_distance)
+        ggsave(file, plot = p, width = 10, height = 8, dpi = 300, bg = "#1a2332")
       }, error = function(e) {
         png(file, width = 800, height = 600)
         plot.new(); text(0.5, 0.5, paste("Error:", e$message)); dev.off()
@@ -2481,20 +2953,34 @@ server <- function(input, output, session) {
   )
 
   output$dl_bar_png <- downloadHandler(
-    filename = function() paste0("Taxonomy_BarPlot_", Sys.Date(), ".png"),
+    filename = function() paste0("Abundance_Plot_", Sys.Date(), ".png"),
     content = function(file) {
       req(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
-      p <- make_bar_plot(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
-      ggsave(file, plot = p, width = 12, height = 8, dpi = 150, bg = "#1a2332")
+      p <- make_bar_plot(get_active_ps(), input$bar_x, input$bar_fill, input$bar_top_n)
+      ggsave(file, plot = p, width = 12, height = 8, dpi = 300, bg = "#1a2332")
     }
   )
 
-  # ── Phyloseq object download (.rds) ──
+  output$dl_pcoa_png <- downloadHandler(
+    filename = function() paste0("PCoA_Ordination_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(rv$ps, input$pcoa_color)
+      tryCatch({
+        p <- make_pcoa_plot(get_active_ps(), input$pcoa_color, input$pcoa_distance)
+        ggsave(file, plot = p, width = 10, height = 8, dpi = 300, bg = "#1a2332")
+      }, error = function(e) {
+        png(file, width = 800, height = 600)
+        plot.new(); text(0.5, 0.5, paste("Error:", e$message)); dev.off()
+      })
+    }
+  )
+
+  # ── Phyloseq object download (.rds) — saves transformed version ──
   output$dl_phyloseq_rds <- downloadHandler(
     filename = function() paste0("phyloseq_object_", Sys.Date(), ".rds"),
     content = function(file) {
       req(rv$ps)
-      saveRDS(rv$ps, file)
+      saveRDS(get_active_ps(), file)
     }
   )
 
