@@ -1,6 +1,6 @@
 # ============================================================================
 # DADA2 16S rRNA Analysis Pipeline — Shiny GUI
-# Full pipeline: QC → Filter → Denoise → Merge → Chimera → Taxonomy → Phyloseq
+# Full pipeline: QC → Filter → Dereplicate → Merge → Chimera → Taxonomy → Phyloseq
 # ============================================================================
 
 # ── Package Management ───────────────────────────────────────────────────────
@@ -285,6 +285,27 @@ body {
   color: white !important;
 }
 
+/* Fix selectize inner elements */
+.selectize-input > .item {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.selectize-input::after {
+  border-color: var(--text-muted) transparent transparent transparent !important;
+}
+.selectize-control.single .selectize-input::after {
+  right: 12px !important;
+}
+.selectize-input .remove-single {
+  display: none !important;
+}
+.selectize-dropdown-content {
+  max-height: 250px !important;
+  overflow-y: auto !important;
+}
+
 .control-label, label {
   color: var(--text-secondary) !important;
   font-size: 12px !important;
@@ -300,6 +321,87 @@ body {
   font-size: 13px !important;
   color: var(--text-primary) !important;
 }
+
+/* ── Checkbox card (matches numeric input height) ── */
+.checkbox-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.checkbox-card > .control-label {
+  margin-bottom: 6px !important;
+}
+.checkbox-card .checkbox {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin: 0 !important;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  transition: border-color 0.2s ease;
+}
+.checkbox-card .checkbox:hover {
+  border-color: var(--accent-blue);
+}
+.checkbox-card .checkbox label {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: var(--text-primary) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px;
+  margin: 0 !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  width: 100% !important;
+}
+.checkbox-card .checkbox input[type='checkbox'] {
+  width: 18px; height: 18px;
+  margin: 0 !important;
+  accent-color: var(--accent-blue);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── File input (Browse button) ── */
+.shiny-input-container .input-group {
+  display: flex !important;
+  align-items: stretch !important;
+}
+.shiny-input-container .input-group .form-control[readonly] {
+  background: var(--bg-input) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm) !important;
+  color: var(--text-secondary) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+  cursor: default !important;
+}
+.shiny-input-container .input-group .btn-default,
+.shiny-input-container .input-group .btn-file {
+  background: var(--gradient-1) !important;
+  border: none !important;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0 !important;
+  color: white !important;
+  font-family: 'Outfit', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  padding: 8px 20px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 10px rgba(59,130,246,0.2) !important;
+  white-space: nowrap !important;
+}
+.shiny-input-container .input-group .btn-default:hover,
+.shiny-input-container .input-group .btn-file:hover {
+  box-shadow: 0 4px 15px rgba(59,130,246,0.4) !important;
+}
+.shiny-input-container .progress {
+  margin-top: 6px !important;
+}
+.shiny-input-container .input-group-btn { display: flex !important; }
 
 /* ── Buttons ── */
 .btn-primary, .btn-run {
@@ -590,6 +692,40 @@ table.dataTable tbody tr:hover td { background: var(--bg-card-hover) !important;
   width: 100% !important;
 }
 
+/* ── Running indicator (shows instantly) ── */
+.running-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 18px;
+  background: rgba(59,130,246,0.08);
+  border: 1px solid rgba(59,130,246,0.25);
+  border-radius: var(--radius-sm);
+  animation: fadeIn 0.2s ease;
+}
+.running-indicator .pulse-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  animation: pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
+}
+.running-indicator .running-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent-blue);
+}
+.running-indicator .running-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
 /* ── Stat cards ── */
 .stat-card {
   background: var(--bg-card);
@@ -633,7 +769,35 @@ ui <- fluidPage(
   useShinyjs(),
   tags$head(
     tags$style(HTML(app_css)),
-    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1")
+    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
+    tags$script(HTML("
+      // Instant running indicator: inject DOM element immediately on click,
+      // before Shiny's reactive flush. This ensures the user sees feedback instantly
+      // even if the observeEvent handler has synchronous blocking work.
+      $(document).on('click', '#btn_filter, #btn_denoise, #btn_merge, #btn_taxonomy', function() {
+        var btnId = $(this).attr('id');
+        var targetMap = {
+          'btn_filter': 'progress_step3',
+          'btn_denoise': 'progress_step4',
+          'btn_merge': 'progress_step5',
+          'btn_taxonomy': 'progress_step6'
+        };
+        var target = targetMap[btnId];
+        if (target) {
+          var el = document.getElementById(target);
+          if (el) {
+            el.innerHTML = '<div class=\"step-progress-container\">' +
+              '<div class=\"step-progress-label\">' +
+                '<span>\\u23f3  Initializing...</span>' +
+                '<span class=\"progress-status\"></span>' +
+              '</div>' +
+              '<div class=\"step-progress-track\">' +
+                '<div class=\"step-progress-fill indeterminate\" style=\"width:30%;\"></div>' +
+              '</div></div>';
+          }
+        }
+      });
+    "))
   ),
 
   # ── Header ──
@@ -654,7 +818,7 @@ ui <- fluidPage(
     div(id = "step_nav_3", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 3, {priority: 'event'})",
       span(class = "step-number", "3"), "Filter & Trim"),
     div(id = "step_nav_4", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 4, {priority: 'event'})",
-      span(class = "step-number", "4"), "Denoise"),
+      span(class = "step-number", "4"), "Dereplication"),
     div(id = "step_nav_5", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 5, {priority: 'event'})",
       span(class = "step-number", "5"), "Merge & Chimeras"),
     div(id = "step_nav_6", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 6, {priority: 'event'})",
@@ -686,13 +850,11 @@ ui <- fluidPage(
                          icon = icon("magnifying-glass"))
           ),
           div(
-            uiOutput("detected_pattern_ui"),
-            div(class = "grid-2", style = "margin-top: 12px;",
-              textInput("fwd_pattern", "Forward Read Pattern", value = ""),
-              textInput("rev_pattern", "Reverse Read Pattern", value = "")
-            )
+            textInput("fwd_pattern", "Forward Read Pattern", value = ""),
+            textInput("rev_pattern", "Reverse Read Pattern", value = "")
           )
-        )
+        ),
+        uiOutput("detected_pattern_ui")
       ),
 
       div(class = "card",
@@ -756,21 +918,7 @@ ui <- fluidPage(
         )
       ),
 
-      div(class = "card",
-        div(class = "card-header",
-          div(class = "icon blue", icon("arrow-right")),
-          "Forward Reads Quality"
-        ),
-        plotOutput("qplot_fwd", height = "400px") %>% withSpinner(type = 6, color = "#3b82f6")
-      ),
-
-      div(class = "card",
-        div(class = "card-header",
-          div(class = "icon rose", icon("arrow-left")),
-          "Reverse Reads Quality"
-        ),
-        plotOutput("qplot_rev", height = "400px") %>% withSpinner(type = 6, color = "#3b82f6")
-      ),
+      uiOutput("qplot_cards"),
 
       div(class = "proceed-bar",
         actionButton("proceed_2", "Proceed to Filter & Trim →", class = "btn-proceed",
@@ -802,8 +950,14 @@ ui <- fluidPage(
         div(class = "grid-4", style = "margin-top: 12px;",
           numericInput("truncQ", "truncQ", value = 2, min = 0),
           numericInput("maxN", "maxN", value = 0, min = 0),
-          checkboxInput("rm_phix", "Remove PhiX", value = TRUE),
-          checkboxInput("compress_out", "Compress Output", value = TRUE)
+          div(class = "checkbox-card",
+            tags$label(class = "control-label", "Remove PhiX"),
+            checkboxInput("rm_phix", "Enabled", value = TRUE)
+          ),
+          div(class = "checkbox-card",
+            tags$label(class = "control-label", "Compress Output"),
+            checkboxInput("compress_out", "Enabled", value = TRUE)
+          )
         ),
         div(style = "margin-top: 16px;",
           actionButton("btn_filter", "Run Filter & Trim", class = "btn-primary",
@@ -820,8 +974,26 @@ ui <- fluidPage(
         DTOutput("filter_table") %>% withSpinner(type = 6, color = "#3b82f6")
       ),
 
+      div(class = "card",
+        div(class = "card-header",
+          div(class = "icon cyan", icon("chart-line")),
+          "Post-Filter Quality Profiles"
+        ),
+        div(class = "card-description",
+          "Inspect quality profiles of the filtered reads to confirm truncation was effective."
+        ),
+        div(class = "grid-2",
+          numericInput("qp_filt_n_samples", "Number of samples to plot", value = 2, min = 1, max = 20),
+          div(style = "display:flex; align-items:flex-end;",
+            actionButton("btn_plot_filt_quality", "Generate Post-Filter Quality Plots", class = "btn-primary",
+                         icon = icon("chart-area"))
+          )
+        ),
+        uiOutput("qplot_filt_cards")
+      ),
+
       div(class = "proceed-bar",
-        actionButton("proceed_3", "Proceed to Denoise →", class = "btn-proceed",
+        actionButton("proceed_3", "Proceed to Dereplication →", class = "btn-proceed",
                      icon = icon("arrow-right"))
       ),
 
@@ -829,19 +1001,19 @@ ui <- fluidPage(
     )),
 
     # ═══════════════════════════════════════════════════════════════════════
-    # STEP 4: Learn Errors & Denoise
+    # STEP 4: Learn Errors & Dereplication
     # ═══════════════════════════════════════════════════════════════════════
     hidden(div(id = "panel_step4", class = "step-panel",
 
       div(class = "card",
         div(class = "card-header",
           div(class = "icon violet", icon("brain")),
-          "Error Learning & Sample Inference"
+          "Error Learning & Dereplication"
         ),
         div(class = "card-description",
-          "DADA2 learns error rates from the data and then applies the core sample inference algorithm to denoise sequences."
+          "DADA2 learns error rates from the data and then applies the core sample inference algorithm to dereplicate and denoise sequences."
         ),
-        actionButton("btn_denoise", "Learn Errors & Denoise", class = "btn-primary",
+        actionButton("btn_denoise", "Learn Errors & Dereplicate", class = "btn-primary",
                      icon = icon("microchip")),
         uiOutput("progress_step4")
       ),
@@ -860,7 +1032,7 @@ ui <- fluidPage(
       div(class = "card",
         div(class = "card-header",
           div(class = "icon emerald", icon("info-circle")),
-          "Denoising Summary"
+          "Dereplication Summary"
         ),
         DTOutput("denoise_summary") %>% withSpinner(type = 6, color = "#3b82f6")
       ),
@@ -906,7 +1078,11 @@ ui <- fluidPage(
           "Read Tracking Through Pipeline"
         ),
         DTOutput("track_table") %>% withSpinner(type = 6, color = "#3b82f6"),
-        plotOutput("track_plot", height = "400px") %>% withSpinner(type = 6, color = "#3b82f6")
+        plotOutput("track_plot", height = "400px") %>% withSpinner(type = 6, color = "#3b82f6"),
+        div(style = "margin-top: 16px; display: flex; gap: 12px;",
+          downloadButton("dl_track_step5", "Download Tracking Table (CSV)", class = "btn-download"),
+          downloadButton("dl_track_plot", "Download Tracking Plot (PDF)", class = "btn-download")
+        )
       ),
 
       div(class = "proceed-bar",
@@ -954,7 +1130,11 @@ ui <- fluidPage(
           div(class = "icon violet", icon("table")),
           "Taxonomy Table"
         ),
-        DTOutput("taxa_table") %>% withSpinner(type = 6, color = "#3b82f6")
+        DTOutput("taxa_table") %>% withSpinner(type = 6, color = "#3b82f6"),
+        div(style = "margin-top: 16px; display: flex; gap: 12px;",
+          downloadButton("dl_asv_step6", "Download ASV Table (CSV)", class = "btn-download"),
+          downloadButton("dl_taxa_step6", "Download Taxonomy Table (CSV)", class = "btn-download")
+        )
       ),
 
       div(class = "proceed-bar",
@@ -978,10 +1158,16 @@ ui <- fluidPage(
         div(class = "card-description",
           "Build a phyloseq object for downstream analysis. Optionally upload sample metadata."
         ),
-        fileInput("metadata_file", "Upload Sample Metadata (CSV/TSV)",
-                  accept = c(".csv", ".tsv", ".txt")),
-        actionButton("btn_phyloseq", "Build Phyloseq Object", class = "btn-primary",
-                     icon = icon("cubes"))
+        div(class = "grid-2",
+          div(
+            fileInput("metadata_file", "Upload Sample Metadata (CSV/TSV)",
+                      accept = c(".csv", ".tsv", ".txt"))
+          ),
+          div(style = "display:flex; align-items:flex-end; padding-bottom: 15px;",
+            actionButton("btn_phyloseq", "Build Phyloseq Object", class = "btn-primary",
+                         icon = icon("cubes"))
+          )
+        )
       ),
 
       div(class = "card",
@@ -991,11 +1177,13 @@ ui <- fluidPage(
         ),
         tabsetPanel(
           tabPanel("Alpha Diversity",
-            div(class = "grid-2", style = "margin-top:12px; margin-bottom:12px;",
-              selectInput("alpha_x", "X-axis variable", choices = NULL),
-              selectInput("alpha_color", "Color by", choices = NULL)
+            div(style = "margin-top:12px; margin-bottom:12px; max-width: 300px;",
+              selectInput("alpha_x", "Group by", choices = NULL)
             ),
-            plotOutput("alpha_plot", height = "500px") %>% withSpinner(type = 6, color = "#3b82f6")
+            plotOutput("alpha_plot", height = "500px") %>% withSpinner(type = 6, color = "#3b82f6"),
+            div(style = "margin-top: 12px;",
+              downloadButton("dl_alpha_png", "Download Alpha Diversity Plot (PNG)", class = "btn-download")
+            )
           ),
           tabPanel("Ordination (NMDS)",
             div(class = "grid-2", style = "margin-top:12px; margin-bottom:12px;",
@@ -1003,7 +1191,10 @@ ui <- fluidPage(
               selectInput("ord_distance", "Distance Method",
                 choices = c("bray", "jaccard", "unifrac", "wunifrac"), selected = "bray")
             ),
-            plotOutput("ordination_plot", height = "500px") %>% withSpinner(type = 6, color = "#3b82f6")
+            plotOutput("ordination_plot", height = "500px") %>% withSpinner(type = 6, color = "#3b82f6"),
+            div(style = "margin-top: 12px;",
+              downloadButton("dl_ord_png", "Download Ordination Plot (PNG)", class = "btn-download")
+            )
           ),
           tabPanel("Bar Plot",
             div(class = "grid-3", style = "margin-top:12px; margin-bottom:12px;",
@@ -1013,7 +1204,10 @@ ui <- fluidPage(
                 selected = "Family"),
               numericInput("bar_top_n", "Top N Taxa", value = 20, min = 5, max = 100)
             ),
-            plotOutput("bar_plot", height = "500px") %>% withSpinner(type = 6, color = "#3b82f6")
+            plotOutput("bar_plot", height = "500px") %>% withSpinner(type = 6, color = "#3b82f6"),
+            div(style = "margin-top: 12px;",
+              downloadButton("dl_bar_png", "Download Bar Plot (PNG)", class = "btn-download")
+            )
           )
         )
       ),
@@ -1031,6 +1225,10 @@ ui <- fluidPage(
           downloadButton("dl_taxa", "Taxonomy (CSV)", class = "btn-download"),
           downloadButton("dl_track", "Tracking Table (CSV)", class = "btn-download"),
           downloadButton("dl_rdata", "Full Workspace (.RData)", class = "btn-download")
+        ),
+        div(class = "grid-2", style = "margin-top: 12px;",
+          downloadButton("dl_phyloseq_rds", "Phyloseq Object (.rds)", class = "btn-download"),
+          div()
         )
       ),
 
@@ -1054,6 +1252,15 @@ server <- function(input, output, session) {
     # File data
     fnFs = NULL, fnRs = NULL, sample_names = NULL,
     all_files = NULL,
+    # Quality plots
+    qplots_ready = FALSE,
+    filt_qplots_ready = FALSE,
+    # Background processes
+    bg_filter = NULL, bg_filter_start = NULL,
+    pending_filtFs = NULL, pending_filtRs = NULL,
+    bg_denoise = NULL, bg_denoise_start = NULL, denoise_stage = NULL,
+    bg_merge = NULL, bg_merge_start = NULL, merge_stage = NULL,
+    bg_tax = NULL, bg_tax_start = NULL,
     # Filter
     filtFs = NULL, filtRs = NULL, filter_out = NULL,
     # Denoise
@@ -1069,16 +1276,49 @@ server <- function(input, output, session) {
     track = NULL,
     # Logs
     log1 = "", log2 = "", log3 = "", log4 = "", log5 = "", log6 = "", log7 = "",
-    # Step progress: list(pct = 0-100, label = "...", status = "idle"|"running"|"done"|"error")
-    prog3 = list(pct = 0, label = "", status = "idle"),
-    prog4 = list(pct = 0, label = "", status = "idle"),
-    prog5 = list(pct = 0, label = "", status = "idle"),
-    prog6 = list(pct = 0, label = "", status = "idle")
+    # Step progress: list(pct, label, status, start_time, eta)
+    prog3 = list(pct = 0, label = "", status = "idle", start_time = NULL, eta = ""),
+    prog4 = list(pct = 0, label = "", status = "idle", start_time = NULL, eta = ""),
+    prog5 = list(pct = 0, label = "", status = "idle", start_time = NULL, eta = ""),
+    prog6 = list(pct = 0, label = "", status = "idle", start_time = NULL, eta = "")
   )
 
-  # ── Helper: update step progress ──
+  # ── Helper: update step progress with ETA ──
   set_progress <- function(step, pct, label, status = "running") {
-    rv[[paste0("prog", step)]] <- list(pct = pct, label = label, status = status)
+    prog_name <- paste0("prog", step)
+    old <- rv[[prog_name]]
+    start_time <- old$start_time
+    eta <- ""
+
+    if (status == "running" && pct == 0) {
+      start_time <- Sys.time()
+    } else if (!is.null(start_time)) {
+      start_time <- old$start_time
+    }
+
+    # Estimate time remaining
+    if (status == "running" && pct > 5 && !is.null(start_time)) {
+      elapsed <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
+      total_est <- elapsed / (pct / 100)
+      remaining <- total_est - elapsed
+      if (remaining > 60) {
+        eta <- paste0("~", round(remaining / 60, 1), " min remaining")
+      } else if (remaining > 0) {
+        eta <- paste0("~", round(remaining), "s remaining")
+      }
+    } else if (status == "done") {
+      if (!is.null(start_time)) {
+        elapsed <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
+        if (elapsed > 60) {
+          eta <- paste0("Completed in ", round(elapsed / 60, 1), " min")
+        } else {
+          eta <- paste0("Completed in ", round(elapsed), "s")
+        }
+      }
+    }
+
+    rv[[prog_name]] <- list(pct = pct, label = label, status = status,
+                            start_time = start_time, eta = eta)
   }
 
   # ── Helper: render progress bar UI ──
@@ -1091,16 +1331,19 @@ server <- function(input, output, session) {
       "step-progress-fill"
     )
     status_icon <- switch(prog$status,
-      "running" = "⏳",
-      "done" = "✓",
-      "error" = "✗",
+      "running" = "\u23f3",
+      "done" = "\u2713",
+      "error" = "\u2717",
       ""
     )
+    pct_text <- if (prog$status == "running" && prog$pct > 0) paste0(prog$pct, "%") else ""
+    eta_text <- if (nzchar(prog$eta)) prog$eta else ""
+    right_text <- paste(c(pct_text, eta_text)[nzchar(c(pct_text, eta_text))], collapse = "  \u00b7  ")
+
     div(class = "step-progress-container",
       div(class = "step-progress-label",
-        span(prog$label),
-        span(class = "progress-status",
-          paste0(status_icon, " ", if (prog$status == "running" && prog$pct > 0) paste0(prog$pct, "%") else ""))
+        span(paste0(status_icon, "  ", prog$label)),
+        span(class = "progress-status", right_text)
       ),
       div(class = "step-progress-track",
         div(class = fill_class, style = paste0("width: ", prog$pct, "%;"))
@@ -1315,6 +1558,8 @@ server <- function(input, output, session) {
     n <- min(input$qp_n_samples, length(rv$fnFs))
     add_log(2, paste("Generating quality plots for", n, "samples..."))
 
+    rv$qplots_ready <- TRUE
+
     output$qplot_fwd <- renderPlot({
       plotQualityProfile(rv$fnFs[1:n]) + ggtitle("Forward Reads Quality Profile")
     })
@@ -1327,133 +1572,302 @@ server <- function(input, output, session) {
     rv$completed_steps <- union(rv$completed_steps, 2)
   })
 
+  # Only show quality plot cards after button is pressed
+  output$qplot_cards <- renderUI({
+    req(rv$qplots_ready)
+    tagList(
+      div(class = "card",
+        div(class = "card-header",
+          div(class = "icon blue", icon("arrow-right")),
+          "Forward Reads Quality"
+        ),
+        plotOutput("qplot_fwd", height = "400px") %>% withSpinner(type = 6, color = "#3b82f6")
+      ),
+      div(class = "card",
+        div(class = "card-header",
+          div(class = "icon rose", icon("arrow-left")),
+          "Reverse Reads Quality"
+        ),
+        plotOutput("qplot_rev", height = "400px") %>% withSpinner(type = 6, color = "#3b82f6")
+      ),
+      div(style = "display: flex; gap: 12px; margin-top: 4px;",
+        downloadButton("dl_raw_qplot_fwd", "Download Forward Quality Plot (PNG)", class = "btn-download"),
+        downloadButton("dl_raw_qplot_rev", "Download Reverse Quality Plot (PNG)", class = "btn-download")
+      )
+    )
+  })
+
   # ═══════════════════════════════════════════════════════════════════════
-  # STEP 3: Filter & Trim
+  # STEP 3: Filter & Trim (async with r_bg for instant UI feedback)
   # ═══════════════════════════════════════════════════════════════════════
 
   observeEvent(input$btn_filter, {
     req(rv$fnFs, rv$fnRs, rv$sample_names)
     path <- trimws(input$data_path)
     add_log(3, "Starting filter & trim...")
-    set_progress(3, 0, "Filtering & trimming reads...", "running")
 
     filtFs <- file.path(path, "filtered", paste0(rv$sample_names, "_F_filt.fastq.gz"))
     filtRs <- file.path(path, "filtered", paste0(rv$sample_names, "_R_filt.fastq.gz"))
     names(filtFs) <- rv$sample_names
     names(filtRs) <- rv$sample_names
 
-    tryCatch({
-      set_progress(3, 15, "Running filterAndTrim (multithreaded)...", "running")
+    # Store for use after async completes
+    rv$pending_filtFs <- filtFs
+    rv$pending_filtRs <- filtRs
 
-      # Run filterAndTrim in a separate R subprocess so multithread works
-      out <- callr::r(
-        function(fnFs, filtFs, fnRs, filtRs, truncLen, maxN, maxEE, truncQ, rm_phix, compress, mt) {
-          library(dada2)
-          filterAndTrim(fnFs, filtFs, fnRs, filtRs,
-                        truncLen = truncLen, maxN = maxN, maxEE = maxEE,
-                        truncQ = truncQ, rm.phix = rm_phix,
-                        compress = compress, multithread = mt)
-        },
-        args = list(
-          fnFs = rv$fnFs, filtFs = filtFs, fnRs = rv$fnRs, filtRs = filtRs,
-          truncLen = c(input$truncLen_fwd, input$truncLen_rev),
-          maxN = input$maxN,
-          maxEE = c(input$maxEE_fwd, input$maxEE_rev),
-          truncQ = input$truncQ,
-          rm_phix = input$rm_phix,
-          compress = input$compress_out,
-          mt = can_multithread
-        )
-      )
+    # Show running indicator instantly
+    set_progress(3, 0, "Launching filterAndTrim (multithreaded)...", "running")
+    shinyjs::disable("btn_filter")
 
-      set_progress(3, 90, "Processing results...", "running")
+    # Launch background process
+    rv$bg_filter <- callr::r_bg(
+      function(fnFs, filtFs, fnRs, filtRs, truncLen, maxN, maxEE, truncQ, rm_phix, compress, mt) {
+        library(dada2)
+        filterAndTrim(fnFs, filtFs, fnRs, filtRs,
+                      truncLen = truncLen, maxN = maxN, maxEE = maxEE,
+                      truncQ = truncQ, rm.phix = rm_phix,
+                      compress = compress, multithread = mt)
+      },
+      args = list(
+        fnFs = rv$fnFs, filtFs = filtFs, fnRs = rv$fnRs, filtRs = filtRs,
+        truncLen = c(input$truncLen_fwd, input$truncLen_rev),
+        maxN = input$maxN,
+        maxEE = c(input$maxEE_fwd, input$maxEE_rev),
+        truncQ = input$truncQ,
+        rm_phix = input$rm_phix,
+        compress = input$compress_out,
+        mt = can_multithread
+      ),
+      supervise = TRUE
+    )
+    rv$bg_filter_start <- Sys.time()
+  })
 
-      rv$filtFs <- filtFs[file.exists(filtFs)]
-      rv$filtRs <- filtRs[file.exists(filtRs)]
-      rv$filter_out <- out
+  # Poll for filter completion
+  observe({
+    req(rv$bg_filter)
+    if (rv$bg_filter$is_alive()) {
+      elapsed <- as.numeric(difftime(Sys.time(), rv$bg_filter_start, units = "secs"))
+      elapsed_txt <- if (elapsed > 60) paste0(round(elapsed/60, 1), " min") else paste0(round(elapsed), "s")
+      set_progress(3, 0, paste0("Running filterAndTrim... (", elapsed_txt, " elapsed)"), "running")
+      invalidateLater(1000)
+    } else {
+      tryCatch({
+        out <- rv$bg_filter$get_result()
+        filtFs <- rv$pending_filtFs
+        filtRs <- rv$pending_filtRs
 
-      # Update sample names to only include samples that passed filtering
-      existing <- file.exists(filtFs)
-      if (sum(existing) < length(rv$sample_names)) {
-        dropped <- rv$sample_names[!existing]
-        add_log(3, paste("Dropped", length(dropped), "samples with 0 reads after filtering:", paste(dropped, collapse = ", ")), "warn")
-        rv$sample_names <- rv$sample_names[existing]
-        rv$fnFs <- rv$fnFs[existing]
-        rv$fnRs <- rv$fnRs[existing]
-        rv$filtFs <- filtFs[existing]
-        rv$filtRs <- filtRs[existing]
-      }
+        rv$filtFs <- filtFs[file.exists(filtFs)]
+        rv$filtRs <- filtRs[file.exists(filtRs)]
+        rv$filter_out <- out
 
-      total_in <- sum(out[, "reads.in"])
-      total_out <- sum(out[, "reads.out"])
-      pct <- round(total_out / total_in * 100, 1)
-      add_log(3, paste("Filtering complete.", total_out, "/", total_in, "reads passed (", pct, "%)."), "success")
-      set_progress(3, 100, "Filter & trim complete", "done")
-      rv$completed_steps <- union(rv$completed_steps, 3)
-    }, error = function(e) {
-      add_log(3, paste("Error:", e$message), "error")
-      set_progress(3, 0, paste("Error:", e$message), "error")
-    })
+        existing <- file.exists(filtFs)
+        if (sum(existing) < length(rv$sample_names)) {
+          dropped <- rv$sample_names[!existing]
+          add_log(3, paste("Dropped", length(dropped), "samples with 0 reads after filtering:", paste(dropped, collapse = ", ")), "warn")
+          rv$sample_names <- rv$sample_names[existing]
+          rv$fnFs <- rv$fnFs[existing]
+          rv$fnRs <- rv$fnRs[existing]
+          rv$filtFs <- filtFs[existing]
+          rv$filtRs <- filtRs[existing]
+        }
+
+        total_in <- sum(out[, "reads.in"])
+        total_out <- sum(out[, "reads.out"])
+        pct <- round(total_out / total_in * 100, 1)
+        add_log(3, paste("Filtering complete.", total_out, "/", total_in, "reads passed (", pct, "%)."), "success")
+        set_progress(3, 100, "Filter & trim complete", "done")
+        rv$completed_steps <- union(rv$completed_steps, 3)
+      }, error = function(e) {
+        add_log(3, paste("Error:", e$message), "error")
+        set_progress(3, 0, paste("Error:", e$message), "error")
+      })
+      shinyjs::enable("btn_filter")
+      rv$bg_filter <- NULL
+    }
   })
 
   output$filter_table <- renderDT({
     req(rv$filter_out)
     df <- as.data.frame(rv$filter_out)
-    df$Sample <- rownames(df)
+    df$Forward_File <- rownames(df)
+    # Match reverse file names by sample
+    rev_basenames <- basename(rv$fnRs)
+    df$Reverse_File <- rev_basenames[seq_len(nrow(df))]
+    df$Sample <- rv$sample_names[seq_len(nrow(df))]
     df$Retention <- paste0(round(df$reads.out / df$reads.in * 100, 1), "%")
-    df <- df[, c("Sample", "reads.in", "reads.out", "Retention")]
-    datatable(df, options = list(pageLength = 15, scrollX = TRUE, dom = 'frtip'),
-              rownames = FALSE, class = 'compact')
+    df <- df[, c("Sample", "Forward_File", "Reverse_File", "reads.in", "reads.out", "Retention")]
+    datatable(df,
+      options = list(
+        pageLength = 10,
+        scrollX = TRUE,
+        scrollY = "400px",
+        scroller = TRUE,
+        dom = 'frtip'
+      ),
+      rownames = FALSE, class = 'compact'
+    )
   })
 
+  # ── Post-filter quality plots ──
+  observeEvent(input$btn_plot_filt_quality, {
+    req(rv$filtFs, rv$filtRs)
+    n <- min(input$qp_filt_n_samples, length(rv$filtFs))
+    add_log(3, paste("Generating post-filter quality plots for", n, "samples..."))
+    rv$filt_qplots_ready <- TRUE
+
+    output$qplot_filt_fwd <- renderPlot({
+      plotQualityProfile(rv$filtFs[1:n]) + ggtitle("Forward Reads Quality (Post-Filter)")
+    })
+    output$qplot_filt_rev <- renderPlot({
+      plotQualityProfile(rv$filtRs[1:n]) + ggtitle("Reverse Reads Quality (Post-Filter)")
+    })
+    add_log(3, "Post-filter quality plots generated.", "success")
+  })
+
+  output$qplot_filt_cards <- renderUI({
+    req(rv$filt_qplots_ready)
+    tagList(
+      div(style = "margin-top: 16px;",
+        div(class = "card-header", style = "margin-bottom: 8px;",
+          div(class = "icon blue", icon("arrow-right")),
+          "Forward Reads (Filtered)"
+        ),
+        plotOutput("qplot_filt_fwd", height = "400px") %>% withSpinner(type = 6, color = "#3b82f6")
+      ),
+      div(style = "margin-top: 16px;",
+        div(class = "card-header", style = "margin-bottom: 8px;",
+          div(class = "icon rose", icon("arrow-left")),
+          "Reverse Reads (Filtered)"
+        ),
+        plotOutput("qplot_filt_rev", height = "400px") %>% withSpinner(type = 6, color = "#3b82f6")
+      ),
+      div(style = "display: flex; gap: 12px; margin-top: 12px;",
+        downloadButton("dl_filt_qplot_fwd", "Download Fwd Filtered Quality (PNG)", class = "btn-download"),
+        downloadButton("dl_filt_qplot_rev", "Download Rev Filtered Quality (PNG)", class = "btn-download")
+      )
+    )
+  })
+
+  # ── Quality plot download handlers (raw - Step 2) ──
+  output$dl_raw_qplot_fwd <- downloadHandler(
+    filename = function() paste0("Raw_Fwd_QualityProfile_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(rv$fnFs)
+      n <- min(input$qp_n_samples, length(rv$fnFs))
+      p <- plotQualityProfile(rv$fnFs[1:n]) + ggtitle("Forward Reads Quality Profile")
+      ggsave(file, plot = p, width = 10, height = 6, dpi = 150)
+    }
+  )
+  output$dl_raw_qplot_rev <- downloadHandler(
+    filename = function() paste0("Raw_Rev_QualityProfile_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(rv$fnRs)
+      n <- min(input$qp_n_samples, length(rv$fnRs))
+      p <- plotQualityProfile(rv$fnRs[1:n]) + ggtitle("Reverse Reads Quality Profile")
+      ggsave(file, plot = p, width = 10, height = 6, dpi = 150)
+    }
+  )
+
+  # ── Quality plot download handlers (filtered - Step 3) ──
+  output$dl_filt_qplot_fwd <- downloadHandler(
+    filename = function() paste0("Filtered_Fwd_QualityProfile_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(rv$filtFs)
+      n <- min(input$qp_filt_n_samples, length(rv$filtFs))
+      p <- plotQualityProfile(rv$filtFs[1:n]) + ggtitle("Forward Reads Quality (Post-Filter)")
+      ggsave(file, plot = p, width = 10, height = 6, dpi = 150)
+    }
+  )
+  output$dl_filt_qplot_rev <- downloadHandler(
+    filename = function() paste0("Filtered_Rev_QualityProfile_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(rv$filtRs)
+      n <- min(input$qp_filt_n_samples, length(rv$filtRs))
+      p <- plotQualityProfile(rv$filtRs[1:n]) + ggtitle("Reverse Reads Quality (Post-Filter)")
+      ggsave(file, plot = p, width = 10, height = 6, dpi = 150)
+    }
+  )
+
   # ═══════════════════════════════════════════════════════════════════════
-  # STEP 4: Learn Errors & Denoise
+  # STEP 4: Learn Errors & Dereplication (async state machine)
   # ═══════════════════════════════════════════════════════════════════════
 
   observeEvent(input$btn_denoise, {
     req(rv$filtFs, rv$filtRs)
-    add_log(4, "Learning error rates for forward reads...")
-    set_progress(4, 0, "Starting error learning & denoising...", "running")
+    add_log(4, "Starting error learning & dereplication pipeline...")
+    set_progress(4, 0, "Launching forward error learning...", "running")
+    shinyjs::disable("btn_denoise")
+    rv$denoise_stage <- 1  # 1=errF, 2=errR, 3=dadaF, 4=dadaR
+    rv$bg_denoise_start <- Sys.time()
 
-    tryCatch({
-      set_progress(4, 5, "Learning forward error model...", "running")
-      errF <- callr::r(
-        function(filtFs, mt) { library(dada2); learnErrors(filtFs, multithread = mt) },
-        args = list(filtFs = rv$filtFs, mt = can_multithread)
-      )
-      rv$errF <- errF
-      add_log(4, "Forward error model learned.", "success")
+    # Stage 1: learn forward errors
+    rv$bg_denoise <- callr::r_bg(
+      function(filtFs, mt) { library(dada2); learnErrors(filtFs, multithread = mt) },
+      args = list(filtFs = rv$filtFs, mt = can_multithread),
+      supervise = TRUE
+    )
+  })
 
-      set_progress(4, 30, "Learning reverse error model...", "running")
-      errR <- callr::r(
-        function(filtRs, mt) { library(dada2); learnErrors(filtRs, multithread = mt) },
-        args = list(filtRs = rv$filtRs, mt = can_multithread)
-      )
-      rv$errR <- errR
-      add_log(4, "Reverse error model learned.", "success")
+  # Poll dereplication stages
+  observe({
+    req(rv$bg_denoise)
+    if (rv$bg_denoise$is_alive()) {
+      elapsed <- as.numeric(difftime(Sys.time(), rv$bg_denoise_start, units = "secs"))
+      elapsed_txt <- if (elapsed > 60) paste0(round(elapsed/60, 1), " min") else paste0(round(elapsed), "s")
+      stage_labels <- c("Learning forward error model...", "Learning reverse error model...",
+                        "Dereplicating forward reads...", "Dereplicating reverse reads...")
+      stage_pcts <- c(5, 30, 55, 80)
+      set_progress(4, stage_pcts[rv$denoise_stage],
+                   paste0(stage_labels[rv$denoise_stage], " (", elapsed_txt, " elapsed)"), "running")
+      invalidateLater(1000)
+    } else {
+      tryCatch({
+        result <- rv$bg_denoise$get_result()
+        stage <- rv$denoise_stage
 
-      set_progress(4, 55, "Denoising forward reads...", "running")
-      dadaFs <- callr::r(
-        function(filtFs, errF, mt) { library(dada2); dada(filtFs, err = errF, multithread = mt) },
-        args = list(filtFs = rv$filtFs, errF = errF, mt = can_multithread)
-      )
-      rv$dadaFs <- dadaFs
-      add_log(4, "Forward reads denoised.", "success")
-
-      set_progress(4, 80, "Denoising reverse reads...", "running")
-      dadaRs <- callr::r(
-        function(filtRs, errR, mt) { library(dada2); dada(filtRs, err = errR, multithread = mt) },
-        args = list(filtRs = rv$filtRs, errR = errR, mt = can_multithread)
-      )
-      rv$dadaRs <- dadaRs
-      add_log(4, "Reverse reads denoised.", "success")
-
-      set_progress(4, 100, "Error learning & denoising complete", "done")
-      rv$completed_steps <- union(rv$completed_steps, 4)
-    }, error = function(e) {
-      add_log(4, paste("Error:", e$message), "error")
-      set_progress(4, 0, paste("Error:", e$message), "error")
-    })
+        if (stage == 1) {
+          rv$errF <- result
+          add_log(4, "Forward error model learned.", "success")
+          rv$denoise_stage <- 2
+          rv$bg_denoise_start <- Sys.time()
+          rv$bg_denoise <- callr::r_bg(
+            function(filtRs, mt) { library(dada2); learnErrors(filtRs, multithread = mt) },
+            args = list(filtRs = rv$filtRs, mt = can_multithread), supervise = TRUE
+          )
+        } else if (stage == 2) {
+          rv$errR <- result
+          add_log(4, "Reverse error model learned.", "success")
+          rv$denoise_stage <- 3
+          rv$bg_denoise_start <- Sys.time()
+          rv$bg_denoise <- callr::r_bg(
+            function(filtFs, errF, mt) { library(dada2); dada(filtFs, err = errF, multithread = mt) },
+            args = list(filtFs = rv$filtFs, errF = rv$errF, mt = can_multithread), supervise = TRUE
+          )
+        } else if (stage == 3) {
+          rv$dadaFs <- result
+          add_log(4, "Forward reads dereplicated.", "success")
+          rv$denoise_stage <- 4
+          rv$bg_denoise_start <- Sys.time()
+          rv$bg_denoise <- callr::r_bg(
+            function(filtRs, errR, mt) { library(dada2); dada(filtRs, err = errR, multithread = mt) },
+            args = list(filtRs = rv$filtRs, errR = rv$errR, mt = can_multithread), supervise = TRUE
+          )
+        } else if (stage == 4) {
+          rv$dadaRs <- result
+          add_log(4, "Reverse reads dereplicated.", "success")
+          set_progress(4, 100, "Error learning & dereplication complete", "done")
+          rv$completed_steps <- union(rv$completed_steps, 4)
+          shinyjs::enable("btn_denoise")
+          rv$bg_denoise <- NULL
+        }
+      }, error = function(e) {
+        add_log(4, paste("Error:", e$message), "error")
+        set_progress(4, 0, paste("Error:", e$message), "error")
+        shinyjs::enable("btn_denoise")
+        rv$bg_denoise <- NULL
+      })
+    }
   })
 
   output$errplot_fwd <- renderPlot({
@@ -1487,52 +1901,78 @@ server <- function(input, output, session) {
   observeEvent(input$btn_merge, {
     req(rv$dadaFs, rv$dadaRs, rv$filtFs, rv$filtRs)
     add_log(5, "Merging paired reads...")
-    set_progress(5, 0, "Starting merge & chimera removal...", "running")
+    set_progress(5, 0, "Merging paired reads...", "running")
+    shinyjs::disable("btn_merge")
+    rv$bg_merge_start <- Sys.time()
+    rv$merge_stage <- 1  # 1=merge+seqtab, 2=chimera removal
 
+    # Stage 1: merge + build seqtab (fast, in-process)
     tryCatch({
-      set_progress(5, 10, "Merging paired reads...", "running")
       mergers <- mergePairs(rv$dadaFs, rv$filtFs, rv$dadaRs, rv$filtRs, verbose = FALSE)
       rv$mergers <- mergers
       add_log(5, "Paired reads merged.", "success")
 
-      set_progress(5, 35, "Building sequence table...", "running")
       seqtab <- makeSequenceTable(mergers)
       rv$seqtab <- seqtab
       add_log(5, paste("Sequence table:", nrow(seqtab), "samples,", ncol(seqtab), "ASVs."), "info")
 
-      set_progress(5, 50, "Removing chimeras (multithreaded)...", "running")
-      seqtab_nochim <- callr::r(
+      # Stage 2: chimera removal (slow, run in background)
+      set_progress(5, 40, "Removing chimeras (multithreaded)...", "running")
+      rv$merge_stage <- 2
+      rv$bg_merge_start <- Sys.time()
+      rv$bg_merge <- callr::r_bg(
         function(seqtab, mt) {
           library(dada2)
           removeBimeraDenovo(seqtab, method = "consensus", multithread = mt, verbose = FALSE)
         },
-        args = list(seqtab = seqtab, mt = can_multithread)
+        args = list(seqtab = seqtab, mt = can_multithread),
+        supervise = TRUE
       )
-      rv$seqtab_nochim <- seqtab_nochim
-      pct <- round(sum(seqtab_nochim) / sum(seqtab) * 100, 1)
-      add_log(5, paste("Chimera removal complete.", ncol(seqtab_nochim), "ASVs retained.",
-                       pct, "% of reads retained."), "success")
-
-      set_progress(5, 85, "Building tracking table...", "running")
-      # Build tracking table
-      getN <- function(x) sum(getUniques(x))
-      track <- cbind(
-        rv$filter_out,
-        sapply(rv$dadaFs, getN),
-        sapply(rv$dadaRs, getN),
-        sapply(mergers, getN),
-        rowSums(seqtab_nochim)
-      )
-      colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
-      rownames(track) <- rv$sample_names
-      rv$track <- track
-
-      set_progress(5, 100, "Merge & chimera removal complete", "done")
-      rv$completed_steps <- union(rv$completed_steps, 5)
     }, error = function(e) {
-      add_log(5, paste("Error:", e$message), "error")
+      add_log(5, paste("Error during merge:", e$message), "error")
       set_progress(5, 0, paste("Error:", e$message), "error")
+      shinyjs::enable("btn_merge")
     })
+  })
+
+  # Poll for chimera removal completion
+  observe({
+    req(rv$bg_merge)
+    if (rv$bg_merge$is_alive()) {
+      elapsed <- as.numeric(difftime(Sys.time(), rv$bg_merge_start, units = "secs"))
+      elapsed_txt <- if (elapsed > 60) paste0(round(elapsed/60, 1), " min") else paste0(round(elapsed), "s")
+      set_progress(5, 40, paste0("Removing chimeras... (", elapsed_txt, " elapsed)"), "running")
+      invalidateLater(1000)
+    } else {
+      tryCatch({
+        seqtab_nochim <- rv$bg_merge$get_result()
+        rv$seqtab_nochim <- seqtab_nochim
+        pct <- round(sum(seqtab_nochim) / sum(rv$seqtab) * 100, 1)
+        add_log(5, paste("Chimera removal complete.", ncol(seqtab_nochim), "ASVs retained.",
+                         pct, "% of reads retained."), "success")
+
+        # Build tracking table
+        getN <- function(x) sum(getUniques(x))
+        track <- cbind(
+          rv$filter_out,
+          sapply(rv$dadaFs, getN),
+          sapply(rv$dadaRs, getN),
+          sapply(rv$mergers, getN),
+          rowSums(seqtab_nochim)
+        )
+        colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+        rownames(track) <- rv$sample_names
+        rv$track <- track
+
+        set_progress(5, 100, "Merge & chimera removal complete", "done")
+        rv$completed_steps <- union(rv$completed_steps, 5)
+      }, error = function(e) {
+        add_log(5, paste("Error:", e$message), "error")
+        set_progress(5, 0, paste("Error:", e$message), "error")
+      })
+      shinyjs::enable("btn_merge")
+      rv$bg_merge <- NULL
+    }
   })
 
   output$seqtab_stats_ui <- renderUI({
@@ -1620,18 +2060,18 @@ server <- function(input, output, session) {
     req(rv$seqtab_nochim)
     add_log(6, "Starting taxonomy assignment...")
     set_progress(6, 0, "Preparing taxonomy assignment...", "running")
+    shinyjs::disable("btn_taxonomy")
 
     tryCatch({
       db_dir <- input$silva_dir
       if (!dir.exists(db_dir)) dir.create(db_dir, recursive = TRUE)
 
-      # Define expected file paths
       genus_file <- file.path(db_dir, basename(SILVA_GENUS_URL))
       species_file <- file.path(db_dir, basename(SILVA_SPECIES_URL))
 
-      # Download if needed
+      # Download if needed (synchronous, usually fast if cached)
       if (!file.exists(genus_file)) {
-        set_progress(6, 10, "Downloading SILVA genus database...", "running")
+        set_progress(6, 5, "Downloading SILVA genus database...", "running")
         add_log(6, "Downloading SILVA genus training set...")
         download.file(SILVA_GENUS_URL, genus_file, mode = "wb", quiet = TRUE)
         add_log(6, "SILVA genus database downloaded.", "success")
@@ -1640,16 +2080,18 @@ server <- function(input, output, session) {
       }
 
       if (input$add_species && !file.exists(species_file)) {
-        set_progress(6, 20, "Downloading SILVA species database...", "running")
+        set_progress(6, 10, "Downloading SILVA species database...", "running")
         add_log(6, "Downloading SILVA species assignment set...")
         download.file(SILVA_SPECIES_URL, species_file, mode = "wb", quiet = TRUE)
         add_log(6, "SILVA species database downloaded.", "success")
       }
 
-      set_progress(6, 30, "Assigning taxonomy (multithreaded)...", "running")
+      set_progress(6, 15, "Launching taxonomy assignment (multithreaded)...", "running")
+      rv$bg_tax_start <- Sys.time()
 
+      # Determine which function to run in background
       if (input$tax_method == "bayesian") {
-        taxa <- callr::r(
+        rv$bg_tax <- callr::r_bg(
           function(seqtab, genus_file, species_file, add_species, mt) {
             library(dada2)
             tx <- assignTaxonomy(seqtab, genus_file, multithread = mt)
@@ -1660,15 +2102,14 @@ server <- function(input, output, session) {
             seqtab = rv$seqtab_nochim, genus_file = genus_file,
             species_file = species_file, add_species = input$add_species,
             mt = can_multithread
-          )
+          ),
+          supervise = TRUE
         )
       } else {
-        # IdTaxa (DECIPHER)
         decipher_db <- file.path(db_dir, "SILVA_SSU_r138_2024.RData")
         if (file.exists(decipher_db)) {
-          add_log(6, "Running IdTaxa in subprocess...", "info")
-          set_progress(6, 40, "Running IdTaxa (DECIPHER)...", "running")
-          taxa <- callr::r(
+          add_log(6, "Running IdTaxa in background subprocess...", "info")
+          rv$bg_tax <- callr::r_bg(
             function(seqtab, decipher_db) {
               library(dada2); library(DECIPHER); library(Biostrings)
               dna <- DNAStringSet(getSequences(seqtab))
@@ -1685,14 +2126,12 @@ server <- function(input, output, session) {
               rownames(taxid) <- getSequences(seqtab)
               taxid
             },
-            args = list(seqtab = rv$seqtab_nochim, decipher_db = decipher_db)
+            args = list(seqtab = rv$seqtab_nochim, decipher_db = decipher_db),
+            supervise = TRUE
           )
         } else {
-          add_log(6, paste("DECIPHER training set not found at:", decipher_db,
-                           ". Place the SILVA_SSU_r138_2024.RData file there, or use assignTaxonomy instead."), "warn")
-          add_log(6, "Falling back to assignTaxonomy (Naive Bayesian).", "warn")
-          set_progress(6, 40, "Falling back to assignTaxonomy...", "running")
-          taxa <- callr::r(
+          add_log(6, paste("DECIPHER training set not found. Falling back to assignTaxonomy."), "warn")
+          rv$bg_tax <- callr::r_bg(
             function(seqtab, genus_file, species_file, add_species, mt) {
               library(dada2)
               tx <- assignTaxonomy(seqtab, genus_file, multithread = mt)
@@ -1703,20 +2142,40 @@ server <- function(input, output, session) {
               seqtab = rv$seqtab_nochim, genus_file = genus_file,
               species_file = species_file, add_species = input$add_species,
               mt = can_multithread
-            )
+            ),
+            supervise = TRUE
           )
         }
       }
-
-      rv$taxa <- taxa
-      add_log(6, paste("Taxonomy assigned to", nrow(taxa), "ASVs."), "success")
-      set_progress(6, 100, "Taxonomy assignment complete", "done")
-
-      rv$completed_steps <- union(rv$completed_steps, 6)
     }, error = function(e) {
       add_log(6, paste("Error:", e$message), "error")
       set_progress(6, 0, paste("Error:", e$message), "error")
+      shinyjs::enable("btn_taxonomy")
     })
+  })
+
+  # Poll for taxonomy completion
+  observe({
+    req(rv$bg_tax)
+    if (rv$bg_tax$is_alive()) {
+      elapsed <- as.numeric(difftime(Sys.time(), rv$bg_tax_start, units = "secs"))
+      elapsed_txt <- if (elapsed > 60) paste0(round(elapsed/60, 1), " min") else paste0(round(elapsed), "s")
+      set_progress(6, 15, paste0("Assigning taxonomy... (", elapsed_txt, " elapsed)"), "running")
+      invalidateLater(1000)
+    } else {
+      tryCatch({
+        taxa <- rv$bg_tax$get_result()
+        rv$taxa <- taxa
+        add_log(6, paste("Taxonomy assigned to", nrow(taxa), "ASVs."), "success")
+        set_progress(6, 100, "Taxonomy assignment complete", "done")
+        rv$completed_steps <- union(rv$completed_steps, 6)
+      }, error = function(e) {
+        add_log(6, paste("Error:", e$message), "error")
+        set_progress(6, 0, paste("Error:", e$message), "error")
+      })
+      shinyjs::enable("btn_taxonomy")
+      rv$bg_tax <- NULL
+    }
   })
 
   output$taxa_table <- renderDT({
@@ -1775,7 +2234,6 @@ server <- function(input, output, session) {
       # Update dropdown choices
       meta_vars <- colnames(samdf)
       updateSelectInput(session, "alpha_x", choices = meta_vars, selected = meta_vars[1])
-      updateSelectInput(session, "alpha_color", choices = c("None", meta_vars), selected = ifelse(length(meta_vars) > 1, meta_vars[2], "None"))
       updateSelectInput(session, "ord_color", choices = c("None", meta_vars), selected = ifelse(length(meta_vars) > 1, meta_vars[1], "None"))
       updateSelectInput(session, "bar_x", choices = meta_vars, selected = meta_vars[1])
 
@@ -1785,50 +2243,94 @@ server <- function(input, output, session) {
     })
   })
 
-  # ── Alpha Diversity Plot ──
+  # ── Alpha Diversity Plot (manual calculation, one point per sample) ──
+  make_alpha_plot <- function(ps, x_var) {
+    # Calculate diversity metrics manually — one value per sample
+    otu <- as(otu_table(ps), "matrix")
+    if (taxa_are_rows(ps)) otu <- t(otu)
+
+    # Observed = number of non-zero ASVs per sample
+    observed <- apply(otu, 1, function(x) sum(x > 0))
+    # Shannon
+    shannon <- apply(otu, 1, function(x) {
+      x <- x[x > 0]
+      p <- x / sum(x)
+      -sum(p * log(p))
+    })
+    # Simpson
+    simpson <- apply(otu, 1, function(x) {
+      x <- x[x > 0]
+      p <- x / sum(x)
+      1 - sum(p^2)
+    })
+
+    sdata <- as(sample_data(ps), "data.frame")
+    df <- data.frame(
+      Sample = sample_names(ps),
+      Observed = observed,
+      Shannon = shannon,
+      Simpson = simpson,
+      stringsAsFactors = FALSE
+    )
+    df <- cbind(df, sdata)
+
+    df_long <- df %>%
+      pivot_longer(cols = c("Observed", "Shannon", "Simpson"),
+                   names_to = "Metric", values_to = "Value") %>%
+      mutate(Metric = factor(Metric, levels = c("Observed", "Shannon", "Simpson")))
+
+    group_var <- df_long[[x_var]]
+
+    ggplot(df_long, aes(x = .data[[x_var]], y = Value, fill = .data[[x_var]])) +
+      geom_boxplot(alpha = 0.5, outlier.shape = NA, color = "#8899b0") +
+      geom_jitter(aes(color = .data[[x_var]]), width = 0.2, size = 3, alpha = 0.85) +
+      facet_wrap(~ Metric, scales = "free_y") +
+      labs(x = x_var, y = "Value") +
+      theme_minimal(base_size = 14) +
+      theme(
+        plot.background = element_rect(fill = "#1a2332", color = NA),
+        panel.background = element_rect(fill = "#1a2332", color = NA),
+        legend.position = "none",
+        strip.background = element_rect(fill = "#111827", color = NA),
+        strip.text = element_text(color = "#e8ecf4", size = 12, face = "bold"),
+        text = element_text(color = "#e8ecf4"),
+        axis.text = element_text(color = "#8899b0"),
+        axis.text.x = element_text(angle = 30, hjust = 1),
+        panel.grid.major = element_line(color = "#2a3a52"),
+        panel.grid.minor = element_blank()
+      )
+  }
+
   output$alpha_plot <- renderPlot({
     req(rv$ps, input$alpha_x)
-    color_var <- if (input$alpha_color == "None") NULL else input$alpha_color
-    p <- plot_richness(rv$ps, x = input$alpha_x, measures = c("Shannon", "Simpson"),
-                       color = color_var)
-    p + theme_minimal(base_size = 14) +
+    make_alpha_plot(rv$ps, input$alpha_x)
+  })
+
+  # ── Ordination Plot ──
+  make_ord_plot <- function(ps, color_var, distance) {
+    ps_prop <- transform_sample_counts(ps, function(otu) otu / sum(otu))
+    ord <- ordinate(ps_prop, method = "NMDS", distance = distance)
+    cv <- if (color_var == "None") NULL else color_var
+    p <- plot_ordination(ps_prop, ord, color = cv, title = paste("NMDS —", distance))
+    p + geom_point(size = 4, alpha = 0.8) +
+      theme_minimal(base_size = 14) +
       theme(
         plot.background = element_rect(fill = "#1a2332", color = NA),
         panel.background = element_rect(fill = "#1a2332", color = NA),
         legend.background = element_rect(fill = "#1a2332", color = NA),
         legend.key = element_rect(fill = "#1a2332", color = NA),
-        strip.background = element_rect(fill = "#111827", color = NA),
-        strip.text = element_text(color = "#e8ecf4", size = 12, face = "bold"),
         text = element_text(color = "#e8ecf4"),
         axis.text = element_text(color = "#8899b0"),
         panel.grid.major = element_line(color = "#2a3a52"),
-        panel.grid.minor = element_blank()
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(size = 14, face = "bold")
       )
-  })
+  }
 
-  # ── Ordination Plot ──
   output$ordination_plot <- renderPlot({
     req(rv$ps, input$ord_color)
-
-    ps_prop <- transform_sample_counts(rv$ps, function(otu) otu / sum(otu))
-
     tryCatch({
-      ord <- ordinate(ps_prop, method = "NMDS", distance = input$ord_distance)
-      color_var <- if (input$ord_color == "None") NULL else input$ord_color
-      p <- plot_ordination(ps_prop, ord, color = color_var, title = paste("NMDS —", input$ord_distance))
-      p + theme_minimal(base_size = 14) +
-        geom_point(size = 4, alpha = 0.8) +
-        theme(
-          plot.background = element_rect(fill = "#1a2332", color = NA),
-          panel.background = element_rect(fill = "#1a2332", color = NA),
-          legend.background = element_rect(fill = "#1a2332", color = NA),
-          legend.key = element_rect(fill = "#1a2332", color = NA),
-          text = element_text(color = "#e8ecf4"),
-          axis.text = element_text(color = "#8899b0"),
-          panel.grid.major = element_line(color = "#2a3a52"),
-          panel.grid.minor = element_blank(),
-          plot.title = element_text(size = 14, face = "bold")
-        )
+      make_ord_plot(rv$ps, input$ord_color, input$ord_distance)
     }, error = function(e) {
       plot.new()
       text(0.5, 0.5, paste("Ordination error:", e$message), col = "#f43f5e", cex = 1.2)
@@ -1836,14 +2338,11 @@ server <- function(input, output, session) {
   })
 
   # ── Bar Plot ──
-  output$bar_plot <- renderPlot({
-    req(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
-
-    top_taxa <- names(sort(taxa_sums(rv$ps), decreasing = TRUE))[1:input$bar_top_n]
-    ps_top <- transform_sample_counts(rv$ps, function(OTU) OTU / sum(OTU))
+  make_bar_plot <- function(ps, x_var, fill_var, top_n) {
+    top_taxa <- names(sort(taxa_sums(ps), decreasing = TRUE))[1:top_n]
+    ps_top <- transform_sample_counts(ps, function(OTU) OTU / sum(OTU))
     ps_top <- prune_taxa(top_taxa, ps_top)
-
-    p <- plot_bar(ps_top, x = input$bar_x, fill = input$bar_fill)
+    p <- plot_bar(ps_top, x = x_var, fill = fill_var)
     p + theme_minimal(base_size = 14) +
       theme(
         plot.background = element_rect(fill = "#1a2332", color = NA),
@@ -1856,6 +2355,11 @@ server <- function(input, output, session) {
         panel.grid.major = element_line(color = "#2a3a52"),
         panel.grid.minor = element_blank()
       )
+  }
+
+  output$bar_plot <- renderPlot({
+    req(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
+    make_bar_plot(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
   })
 
   # ── Downloads ──────────────────────────────────────────────────────────
@@ -1904,6 +2408,93 @@ server <- function(input, output, session) {
            filter_out, errF, errR, dadaFs, dadaRs,
            mergers, seqtab, samdf,
            file = file)
+    }
+  )
+
+  # ── Step 5 downloads (tracking table + plot) ──
+  output$dl_track_step5 <- downloadHandler(
+    filename = function() paste0("Read_tracking_", Sys.Date(), ".csv"),
+    content = function(file) {
+      req(rv$track)
+      write.csv(rv$track, file)
+    }
+  )
+
+  output$dl_track_plot <- downloadHandler(
+    filename = function() paste0("Read_tracking_plot_", Sys.Date(), ".pdf"),
+    content = function(file) {
+      req(rv$track)
+      df <- as.data.frame(rv$track)
+      df$Sample <- rownames(df)
+      df_long <- df %>%
+        pivot_longer(cols = -Sample, names_to = "Step", values_to = "Reads") %>%
+        mutate(Step = factor(Step, levels = c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")))
+      p <- ggplot(df_long, aes(x = Step, y = Reads, group = Sample, color = Sample)) +
+        geom_line(alpha = 0.7, linewidth = 0.8) +
+        geom_point(size = 2, alpha = 0.8) +
+        labs(title = "Read Tracking Through Pipeline", x = "Pipeline Step", y = "Number of Reads") +
+        theme_minimal(base_size = 14) +
+        theme(axis.text.x = element_text(angle = 30, hjust = 1))
+      ggsave(file, plot = p, width = 10, height = 6)
+    }
+  )
+
+  # ── Step 6 downloads (ASV + taxonomy) ──
+  output$dl_asv_step6 <- downloadHandler(
+    filename = function() paste0("ASV_table_", Sys.Date(), ".csv"),
+    content = function(file) {
+      req(rv$seqtab_nochim)
+      write.csv(rv$seqtab_nochim, file)
+    }
+  )
+
+  output$dl_taxa_step6 <- downloadHandler(
+    filename = function() paste0("Taxonomy_table_", Sys.Date(), ".csv"),
+    content = function(file) {
+      req(rv$taxa)
+      write.csv(rv$taxa, file)
+    }
+  )
+
+  # ── Phyloseq plot PNG downloads ──
+  output$dl_alpha_png <- downloadHandler(
+    filename = function() paste0("Alpha_Diversity_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(rv$ps, input$alpha_x)
+      p <- make_alpha_plot(rv$ps, input$alpha_x)
+      ggsave(file, plot = p, width = 12, height = 6, dpi = 150, bg = "#1a2332")
+    }
+  )
+
+  output$dl_ord_png <- downloadHandler(
+    filename = function() paste0("NMDS_Ordination_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(rv$ps, input$ord_color)
+      tryCatch({
+        p <- make_ord_plot(rv$ps, input$ord_color, input$ord_distance)
+        ggsave(file, plot = p, width = 10, height = 8, dpi = 150, bg = "#1a2332")
+      }, error = function(e) {
+        png(file, width = 800, height = 600)
+        plot.new(); text(0.5, 0.5, paste("Error:", e$message)); dev.off()
+      })
+    }
+  )
+
+  output$dl_bar_png <- downloadHandler(
+    filename = function() paste0("Taxonomy_BarPlot_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
+      p <- make_bar_plot(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
+      ggsave(file, plot = p, width = 12, height = 8, dpi = 150, bg = "#1a2332")
+    }
+  )
+
+  # ── Phyloseq object download (.rds) ──
+  output$dl_phyloseq_rds <- downloadHandler(
+    filename = function() paste0("phyloseq_object_", Sys.Date(), ".rds"),
+    content = function(file) {
+      req(rv$ps)
+      saveRDS(rv$ps, file)
     }
   )
 
