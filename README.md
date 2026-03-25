@@ -45,6 +45,8 @@ The app opens in your default browser at `http://127.0.0.1:XXXX`.
 
 ## Pipeline Steps (7-step workflow)
 
+- :bulb: If you’re wondering what happens when you close the browser before the analysis finishes, don’t worry! If you come back the next day, you can simply resume the analysis from the last checkpoint.
+
 ### Step 1 — Setup & Files
 - Enter the path to your directory of demultiplexed paired-end FASTQ files
 - The app auto-detects common forward/reverse naming patterns (e.g., `_R1_001.fastq`) with manual override
