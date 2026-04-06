@@ -1,5 +1,5 @@
 # ============================================================================
-# DADA2 16S rRNA Analysis Pipeline - Shiny GUI
+# DADA2 ITS Analysis Pipeline - Shiny GUI
 # Full pipeline: QC -> Filter -> Dereplicate -> Merge -> Chimera -> Taxonomy -> Phyloseq
 # ============================================================================
 
@@ -7,7 +7,7 @@
 
 required_cran <- c("shiny", "ggplot2", "tidyverse", "shinyjs",
                    "DT", "shinycssloaders", "callr", "vegan")
-required_bioc <- c("dada2", "phyloseq", "Biostrings", "DECIPHER", "microbiome", "ANCOMBC")
+required_bioc <- c("dada2", "phyloseq", "Biostrings", "DECIPHER", "ShortRead", "microbiome", "ANCOMBC")
 
 install_if_missing <- function() {
   # CRAN packages
@@ -37,6 +37,7 @@ library(dada2)
 library(phyloseq)
 library(Biostrings)
 library(DECIPHER)
+library(ShortRead)
 library(callr)
 library(vegan)
 library(microbiome)
@@ -53,10 +54,9 @@ library(ANCOMBC)
 # with multithread=FALSE.
 can_multithread <- .Platform$OS.type != "windows"
 
-# ── SILVA database URLs (v138.1) ──────────────────────────────────────────
+# ── UNITE database URL ──────────────────────────────────────────
 
-SILVA_GENUS_URL <- "https://zenodo.org/records/4587955/files/silva_nr99_v138.1_train_set.fa.gz"
-SILVA_SPECIES_URL <- "https://zenodo.org/records/4587955/files/silva_species_assignment_v138.1.fa.gz"
+UNITE_URL <- "https://files.plutof.ut.ee/id/thenewfrontier/fasta/sh_general_release_dynamic_29.11.2022.fasta.tgz"
 
 # ── Common forward/reverse patterns ─────────────────────────────────────────
 
@@ -822,14 +822,15 @@ ui <- fluidPage(
       // Instant running indicator: inject DOM element immediately on click,
       // before Shiny's reactive flush. This ensures the user sees feedback instantly
       // even if the observeEvent handler has synchronous blocking work.
-      $(document).on('click', '#btn_filter, #btn_denoise, #btn_merge, #btn_taxonomy, #btn_ancombc2', function() {
+      $(document).on('click', '#btn_run_cutadapt, #btn_filter, #btn_denoise, #btn_merge, #btn_taxonomy', function() {
         var btnId = $(this).attr('id');
         var targetMap = {
-          'btn_filter': 'progress_step3',
-          'btn_denoise': 'progress_step4',
-          'btn_merge': 'progress_step5',
-          'btn_taxonomy': 'progress_step6',
-          'btn_ancombc2': 'progress_step10'
+          'btn_run_cutadapt': 'progress_step3',
+          'btn_filter': 'progress_step4',
+          'btn_ancombc2': 'progress_step11',
+          'btn_denoise': 'progress_step5',
+          'btn_merge': 'progress_step6',
+          'btn_taxonomy': 'progress_step7'
         };
         var target = targetMap[btnId];
         if (target) {
@@ -851,10 +852,10 @@ ui <- fluidPage(
 
   # ── Header ──
   div(class = "app-header",
-    div(class = "app-logo", "16S"),
+    div(class = "app-logo", "ITS"),
     div(
-      div(class = "app-title", "DADA2 Pipeline"),
-      div(class = "app-subtitle", "16S rRNA Amplicon Sequence Analysis")
+      div(class = "app-title", "DADA2 ITS Pipeline"),
+      div(class = "app-subtitle", "ITS Amplicon Sequence Analysis")
     )
   ),
 
@@ -865,21 +866,23 @@ ui <- fluidPage(
     div(id = "step_nav_2", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 2, {priority: 'event'})",
       span(class = "step-number", "2"), "Quality Profiles"),
     div(id = "step_nav_3", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 3, {priority: 'event'})",
-      span(class = "step-number", "3"), "Filter & Trim"),
+      span(class = "step-number", "3"), "Primer Removal"),
     div(id = "step_nav_4", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 4, {priority: 'event'})",
-      span(class = "step-number", "4"), "Dereplication"),
+      span(class = "step-number", "4"), "Filter & Trim"),
     div(id = "step_nav_5", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 5, {priority: 'event'})",
-      span(class = "step-number", "5"), "Merge & Chimeras"),
+      span(class = "step-number", "5"), "Dereplication"),
     div(id = "step_nav_6", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 6, {priority: 'event'})",
-      span(class = "step-number", "6"), "Taxonomy"),
+      span(class = "step-number", "6"), "Merge & Chimeras"),
     div(id = "step_nav_7", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 7, {priority: 'event'})",
-      span(class = "step-number", "7"), "Phyloseq"),
+      span(class = "step-number", "7"), "Taxonomy"),
     div(id = "step_nav_8", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 8, {priority: 'event'})",
-      span(class = "step-number", "8"), "Figures"),
+      span(class = "step-number", "8"), "Phyloseq"),
     div(id = "step_nav_9", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 9, {priority: 'event'})",
-      span(class = "step-number", "9"), "PERMANOVA"),
+      span(class = "step-number", "9"), "Figures"),
     div(id = "step_nav_10", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 10, {priority: 'event'})",
-      span(class = "step-number", "10"), "ANCOM-BC2")
+      span(class = "step-number", "10"), "PERMANOVA"),
+    div(id = "step_nav_11", class = "step-pill", onclick = "Shiny.setInputValue('nav_step', 11, {priority: 'event'})",
+      span(class = "step-number", "11"), "ANCOM-BC2")
   ),
 
   # ── Main content ──
@@ -944,12 +947,93 @@ ui <- fluidPage(
       ),
 
       div(class = "proceed-bar",
-        actionButton("proceed_1", "Proceed to Quality Profiles ->", class = "btn-proceed",
+        actionButton("proceed_1", "Proceed to Quality Profiles \u2192", class = "btn-proceed",
                      icon = icon("arrow-right"))
       ),
 
       div(class = "log-panel", id = "log_step1", htmlOutput("log1"))
     ),
+
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # STEP 3: Primer Removal
+    # ═══════════════════════════════════════════════════════════════════════
+    hidden(div(id = "panel_step3", class = "step-panel",
+
+      div(class = "card",
+        div(class = "card-header",
+          div(class = "icon rose", icon("cut")),
+          "Primer Sequences"
+        ),
+        div(class = "card-description",
+          "Enter the forward (FWD) and reverse (REV) primer sequences used for ITS amplification. You can add multiple primers if your library used mixed primers. The number of forward and reverse primers can differ."
+        ),
+        div(class = "card-description", style = "font-weight: 500; color: var(--text-primary); margin-bottom: 8px;", "Forward Primers"),
+        uiOutput("fwd_primer_inputs"),
+        actionButton("btn_add_fwd_primer", "+ Add Forward Primer", class = "btn-secondary",
+                     style = "margin-top: 8px; margin-bottom: 16px;"),
+        div(class = "card-description", style = "font-weight: 500; color: var(--text-primary); margin-bottom: 8px;", "Reverse Primers"),
+        uiOutput("rev_primer_inputs"),
+        actionButton("btn_add_rev_primer", "+ Add Reverse Primer", class = "btn-secondary",
+                     style = "margin-top: 8px; margin-bottom: 16px;"),
+        div(style = "margin-top: 12px;",
+          actionButton("btn_check_primers", "Check Primer Orientations", class = "btn-primary",
+                       icon = icon("search"))
+        )
+      ),
+
+      div(class = "card",
+        div(class = "card-header",
+          div(class = "icon amber", icon("table")),
+          "Primer Hit Counts"
+        ),
+        div(class = "card-description",
+          "Number of reads containing each primer orientation. Forward primers should appear in forward reads; reverse-complement may appear due to read-through."
+        ),
+        DTOutput("primer_hits_table") %>% withSpinner(type = 6, color = "#3b82f6")
+      ),
+
+      div(class = "card",
+        div(class = "card-header",
+          div(class = "icon violet", icon("terminal")),
+          "Cutadapt Primer Removal"
+        ),
+        div(class = "card-description",
+          "Remove primers from reads using cutadapt. The app will auto-detect or install cutadapt if needed."
+        ),
+        div(class = "grid-2",
+          div(
+            textInput("cutadapt_path", "Path to cutadapt", value = "cutadapt"),
+            actionButton("btn_detect_cutadapt", "Detect / Install cutadapt", class = "btn-secondary",
+                         icon = icon("cog"))
+          ),
+          div(style = "display:flex; align-items:flex-end; padding-bottom: 8px;",
+            actionButton("btn_run_cutadapt", "Run Cutadapt", class = "btn-primary",
+                         icon = icon("scissors"))
+          )
+        ),
+        uiOutput("cutadapt_status"),
+        uiOutput("progress_step3")
+      ),
+
+      div(class = "card",
+        div(class = "card-header",
+          div(class = "icon emerald", icon("check-circle")),
+          "Post-Removal Primer Check"
+        ),
+        div(class = "card-description",
+          "Verify that primers have been successfully removed from all reads."
+        ),
+        DTOutput("primer_hits_after") %>% withSpinner(type = 6, color = "#3b82f6")
+      ),
+
+      div(class = "proceed-bar",
+        actionButton("proceed_2", "Proceed to Filter & Trim \u2192", class = "btn-proceed",
+                     icon = icon("arrow-right"))
+      ),
+
+      div(class = "log-panel", id = "log_step3", htmlOutput("log3"))
+    )),
 
     # ═══════════════════════════════════════════════════════════════════════
     # STEP 2: Quality Profiles
@@ -976,7 +1060,7 @@ ui <- fluidPage(
       uiOutput("qplot_cards"),
 
       div(class = "proceed-bar",
-        actionButton("proceed_2", "Proceed to Filter & Trim ->", class = "btn-proceed",
+        actionButton("proceed_3", "Proceed to Primer Removal \u2192", class = "btn-proceed",
                      icon = icon("arrow-right"))
       ),
 
@@ -984,9 +1068,9 @@ ui <- fluidPage(
     )),
 
     # ═══════════════════════════════════════════════════════════════════════
-    # STEP 3: Filter & Trim
+    # STEP 4: Filter & Trim
     # ═══════════════════════════════════════════════════════════════════════
-    hidden(div(id = "panel_step3", class = "step-panel",
+    hidden(div(id = "panel_step4", class = "step-panel",
 
       div(class = "card",
         div(class = "card-header",
@@ -994,13 +1078,16 @@ ui <- fluidPage(
           "Filter & Trim Parameters"
         ),
         div(class = "card-description",
-          "Set truncation lengths based on quality profiles. Adjust additional parameters below."
+          "Set filtering parameters. For ITS data, truncation to a fixed length is not used due to natural length variation of the ITS region."
+        ),
+        div(class = "card-description", style = "color: var(--accent-amber);",
+          "Note: For ITS data, truncation to a fixed length is NOT used because ITS regions have natural length variation."
         ),
         div(class = "grid-4",
-          numericInput("truncLen_fwd", "Truncation Length (Fwd)", value = 240, min = 50, max = 500),
-          numericInput("truncLen_rev", "Truncation Length (Rev)", value = 160, min = 50, max = 500),
           numericInput("maxEE_fwd", "Max Expected Errors (Fwd)", value = 2, min = 0, step = 0.5),
-          numericInput("maxEE_rev", "Max Expected Errors (Rev)", value = 2, min = 0, step = 0.5)
+          numericInput("maxEE_rev", "Max Expected Errors (Rev)", value = 2, min = 0, step = 0.5),
+          numericInput("minLen", "Minimum Length (bp)", value = 50, min = 10, step = 10),
+          div()
         ),
         div(class = "grid-4", style = "margin-top: 12px;",
           numericInput("truncQ", "truncQ", value = 2, min = 0),
@@ -1016,7 +1103,7 @@ ui <- fluidPage(
           actionButton("btn_filter", "Run Filter & Trim", class = "btn-primary",
                        icon = icon("scissors"))
         ),
-        uiOutput("progress_step3")
+        uiOutput("progress_step4")
       ),
 
       div(class = "card",
@@ -1046,17 +1133,17 @@ ui <- fluidPage(
       ),
 
       div(class = "proceed-bar",
-        actionButton("proceed_3", "Proceed to Dereplication ->", class = "btn-proceed",
+        actionButton("proceed_4", "Proceed to Dereplication \u2192", class = "btn-proceed",
                      icon = icon("arrow-right"))
       ),
 
-      div(class = "log-panel", id = "log_step3", htmlOutput("log3"))
+      div(class = "log-panel", id = "log_step4", htmlOutput("log4"))
     )),
 
     # ═══════════════════════════════════════════════════════════════════════
-    # STEP 4: Learn Errors & Dereplication
+    # STEP 5: Learn Errors & Dereplication
     # ═══════════════════════════════════════════════════════════════════════
-    hidden(div(id = "panel_step4", class = "step-panel",
+    hidden(div(id = "panel_step5", class = "step-panel",
 
       div(class = "card",
         div(class = "card-header",
@@ -1068,7 +1155,7 @@ ui <- fluidPage(
         ),
         actionButton("btn_denoise", "Learn Errors & Dereplicate", class = "btn-primary",
                      icon = icon("microchip")),
-        uiOutput("progress_step4")
+        uiOutput("progress_step5")
       ),
 
       div(class = "card",
@@ -1091,17 +1178,17 @@ ui <- fluidPage(
       ),
 
       div(class = "proceed-bar",
-        actionButton("proceed_4", "Proceed to Merge & Chimeras ->", class = "btn-proceed",
+        actionButton("proceed_5", "Proceed to Merge & Chimeras \u2192", class = "btn-proceed",
                      icon = icon("arrow-right"))
       ),
 
-      div(class = "log-panel", id = "log_step4", htmlOutput("log4"))
+      div(class = "log-panel", id = "log_step5", htmlOutput("log5"))
     )),
 
     # ═══════════════════════════════════════════════════════════════════════
-    # STEP 5: Merge & Chimera Removal
+    # STEP 6: Merge & Chimera Removal
     # ═══════════════════════════════════════════════════════════════════════
-    hidden(div(id = "panel_step5", class = "step-panel",
+    hidden(div(id = "panel_step6", class = "step-panel",
 
       div(class = "card",
         div(class = "card-header",
@@ -1113,7 +1200,7 @@ ui <- fluidPage(
         ),
         actionButton("btn_merge", "Merge & Remove Chimeras", class = "btn-primary",
                      icon = icon("code-merge")),
-        uiOutput("progress_step5")
+        uiOutput("progress_step6")
       ),
 
       div(class = "card",
@@ -1139,17 +1226,17 @@ ui <- fluidPage(
       ),
 
       div(class = "proceed-bar",
-        actionButton("proceed_5", "Proceed to Taxonomy ->", class = "btn-proceed",
+        actionButton("proceed_6", "Proceed to Taxonomy \u2192", class = "btn-proceed",
                      icon = icon("arrow-right"))
       ),
 
-      div(class = "log-panel", id = "log_step5", htmlOutput("log5"))
+      div(class = "log-panel", id = "log_step6", htmlOutput("log6"))
     )),
 
     # ═══════════════════════════════════════════════════════════════════════
-    # STEP 6: Taxonomy Assignment
+    # STEP 7: Taxonomy Assignment
     # ═══════════════════════════════════════════════════════════════════════
-    hidden(div(id = "panel_step6", class = "step-panel",
+    hidden(div(id = "panel_step7", class = "step-panel",
 
       div(class = "card",
         div(class = "card-header",
@@ -1157,7 +1244,7 @@ ui <- fluidPage(
           "Taxonomy Assignment"
         ),
         div(class = "card-description",
-          "Assign taxonomy using the SILVA reference database. The app will download the database if not already present."
+          "Assign taxonomy using the UNITE fungal database. The app will download the database if not already present. You can also browse to a custom reference database."
         ),
         div(class = "grid-2",
           div(
@@ -1168,14 +1255,15 @@ ui <- fluidPage(
             )
           ),
           div(
-            textInput("silva_dir", "Database Storage Directory",
-                      value = file.path(path.expand("~"), "dada2_databases")),
-            checkboxInput("add_species", "Add Species-Level Assignment", value = TRUE)
+            textInput("silva_dir", "UNITE Database Path",
+                      value = file.path(path.expand("~"), "dada2_its_databases")),
+            div(style = "font-size: 11px; color: var(--text-muted); margin-top: -8px; margin-bottom: 4px;",
+              "Path to UNITE .fasta file, or a directory (will auto-download if not found)")
           )
         ),
         actionButton("btn_taxonomy", "Assign Taxonomy", class = "btn-primary",
                      icon = icon("tags")),
-        uiOutput("progress_step6")
+        uiOutput("progress_step7")
       ),
 
       div(class = "card",
@@ -1191,17 +1279,17 @@ ui <- fluidPage(
       ),
 
       div(class = "proceed-bar",
-        actionButton("proceed_6", "Proceed to Phyloseq \u2192", class = "btn-proceed",
+        actionButton("proceed_7", "Proceed to Phyloseq \u2192", class = "btn-proceed",
                      icon = icon("arrow-right"))
       ),
 
-      div(class = "log-panel", id = "log_step6", htmlOutput("log6"))
+      div(class = "log-panel", id = "log_step7", htmlOutput("log7"))
     )),
 
     # ═══════════════════════════════════════════════════════════════════════
-    # STEP 7: Phyloseq
+    # STEP 8: Phyloseq
     # ═══════════════════════════════════════════════════════════════════════
-    hidden(div(id = "panel_step7", class = "step-panel",
+    hidden(div(id = "panel_step8", class = "step-panel",
 
       div(class = "card",
         div(class = "card-header",
@@ -1259,17 +1347,17 @@ ui <- fluidPage(
       ),
 
       div(class = "proceed-bar",
-        actionButton("proceed_7", "Proceed to Figures \u2192", class = "btn-proceed",
+        actionButton("proceed_8", "Proceed to Figures \u2192", class = "btn-proceed",
                      icon = icon("arrow-right"))
       ),
 
-      div(class = "log-panel", id = "log_step7", htmlOutput("log7"))
+      div(class = "log-panel", id = "log_step8", htmlOutput("log8"))
     )),
 
     # ═══════════════════════════════════════════════════════════════════════
-    # STEP 8: Figures
+    # STEP 9: Figures
     # ═══════════════════════════════════════════════════════════════════════
-    hidden(div(id = "panel_step8", class = "step-panel",
+    hidden(div(id = "panel_step9", class = "step-panel",
 
       div(class = "card",
         div(class = "card-header",
@@ -1335,17 +1423,17 @@ ui <- fluidPage(
       ),
 
       div(class = "proceed-bar",
-        actionButton("proceed_8", "Proceed to PERMANOVA \u2192", class = "btn-proceed",
+        actionButton("proceed_9", "Proceed to PERMANOVA \u2192", class = "btn-proceed",
                      icon = icon("arrow-right"))
       ),
 
-      div(class = "log-panel", id = "log_step8", htmlOutput("log8"))
+      div(class = "log-panel", id = "log_step9", htmlOutput("log9"))
     )),
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # STEP 9: PERMANOVA
-    # ═══════════════════════════════════════════════════════════════════════
-    hidden(div(id = "panel_step9", class = "step-panel",
+    # =====================================================================
+    # STEP 10: PERMANOVA
+    # =====================================================================
+    hidden(div(id = "panel_step10", class = "step-panel",
 
       div(class = "card",
         div(class = "card-header",
@@ -1413,17 +1501,17 @@ ui <- fluidPage(
       ),
 
       div(class = "proceed-bar",
-        actionButton("proceed_9", "Proceed to ANCOM-BC2 \u2192", class = "btn-proceed",
+        actionButton("proceed_10", "Proceed to ANCOM-BC2 \u2192", class = "btn-proceed",
                      icon = icon("arrow-right"))
       ),
 
-      div(class = "log-panel", id = "log_step9", htmlOutput("log9"))
+      div(class = "log-panel", id = "log_step10", htmlOutput("log10"))
     )),
 
     # =====================================================================
-    # STEP 10: ANCOM-BC2
+    # STEP 11: ANCOM-BC2
     # =====================================================================
-    hidden(div(id = "panel_step10", class = "step-panel",
+    hidden(div(id = "panel_step11", class = "step-panel",
 
       div(class = "card",
         div(class = "card-header",
@@ -1514,7 +1602,7 @@ ui <- fluidPage(
           actionButton("btn_ancombc2", "Run ANCOM-BC2", class = "btn-primary",
                        icon = icon("play"))
         ),
-        uiOutput("progress_step10")
+        uiOutput("progress_step11")
       ),
 
       div(class = "card",
@@ -1574,7 +1662,7 @@ ui <- fluidPage(
         )
       ),
 
-      div(class = "log-panel", id = "log_step10", htmlOutput("log10"))
+      div(class = "log-panel", id = "log_step11", htmlOutput("log11"))
     ))
 
   ) # end main-container
@@ -1598,6 +1686,11 @@ server <- function(input, output, session) {
     # Quality plots
     qplots_ready = FALSE,
     filt_qplots_ready = FALSE,
+    # Primer removal
+    fnFs_cut = NULL, fnRs_cut = NULL,
+    fnFs_filtN = NULL, fnRs_filtN = NULL,
+    primer_hits_before = NULL, primer_hits_after_data = NULL,
+    cutadapt_found = FALSE,
     # Background processes
     bg_filter = NULL, bg_filter_start = NULL,
     pending_filtFs = NULL, pending_filtRs = NULL,
@@ -1622,13 +1715,14 @@ server <- function(input, output, session) {
     # Tracking
     track = NULL,
     # Logs
-    log1 = "", log2 = "", log3 = "", log4 = "", log5 = "", log6 = "", log7 = "", log8 = "", log9 = "", log10 = "",
+    log1 = "", log3 = "", log4 = "", log5 = "", log6 = "", log7 = "", log8 = "", log9 = "",
     # Step progress: list(pct, label, status)
     prog3 = list(pct = 0, label = "", status = "idle"),
     prog4 = list(pct = 0, label = "", status = "idle"),
     prog5 = list(pct = 0, label = "", status = "idle"),
     prog6 = list(pct = 0, label = "", status = "idle"),
-    prog10 = list(pct = 0, label = "", status = "idle")
+    prog11 = list(pct = 0, label = "", status = "idle"),
+    prog7 = list(pct = 0, label = "", status = "idle")
   )
 
   # ── Helper: update step progress ──
@@ -1669,7 +1763,8 @@ server <- function(input, output, session) {
   output$progress_step4 <- renderUI({ render_progress_bar(rv$prog4) })
   output$progress_step5 <- renderUI({ render_progress_bar(rv$prog5) })
   output$progress_step6 <- renderUI({ render_progress_bar(rv$prog6) })
-  output$progress_step10 <- renderUI({ render_progress_bar(rv$prog10) })
+  output$progress_step11 <- renderUI({ render_progress_bar(rv$prog11) })
+  output$progress_step7 <- renderUI({ render_progress_bar(rv$prog7) })
 
   # ── Session Save/Load ──────────────────────────────────────────────────
 
@@ -1694,6 +1789,8 @@ server <- function(input, output, session) {
         completed_steps = rv$completed_steps,
         current_step = rv$current_step,
         fnFs = rv$fnFs, fnRs = rv$fnRs,
+        fnFs_cut = rv$fnFs_cut, fnRs_cut = rv$fnRs_cut,
+        fnFs_filtN = rv$fnFs_filtN, fnRs_filtN = rv$fnRs_filtN,
         sample_names = rv$sample_names,
         all_files = rv$all_files,
         filtFs = rv$filtFs, filtRs = rv$filtRs,
@@ -1706,8 +1803,8 @@ server <- function(input, output, session) {
         ps = rv$ps, ps_transformed = rv$ps_transformed,
         transform_method = rv$transform_method, samdf = rv$samdf,
         track = rv$track,
-        log1 = rv$log1, log2 = rv$log2, log3 = rv$log3,
-        log4 = rv$log4, log5 = rv$log5, log6 = rv$log6, log7 = rv$log7, log8 = rv$log8, log9 = rv$log9, log10 = rv$log10,
+        log1 = rv$log1, log3 = rv$log3, log4 = rv$log4,
+        log5 = rv$log5, log6 = rv$log6, log7 = rv$log7, log8 = rv$log8, log9 = rv$log9, log10 = rv$log10, log11 = rv$log11,
         # Save input parameters for reproducibility
         fwd_pattern = isolate(input$fwd_pattern),
         rev_pattern = isolate(input$rev_pattern),
@@ -1731,6 +1828,10 @@ server <- function(input, output, session) {
       rv$completed_steps <- session_data$completed_steps
       rv$fnFs <- session_data$fnFs
       rv$fnRs <- session_data$fnRs
+      rv$fnFs_cut <- session_data$fnFs_cut
+      rv$fnRs_cut <- session_data$fnRs_cut
+      rv$fnFs_filtN <- session_data$fnFs_filtN
+      rv$fnRs_filtN <- session_data$fnRs_filtN
       rv$sample_names <- session_data$sample_names
       rv$all_files <- session_data$all_files
       rv$filtFs <- session_data$filtFs
@@ -1750,15 +1851,15 @@ server <- function(input, output, session) {
       rv$samdf <- session_data$samdf
       rv$track <- session_data$track
       rv$log1 <- session_data$log1
-      rv$log2 <- session_data$log2
       rv$log3 <- session_data$log3
       rv$log4 <- session_data$log4
       rv$log5 <- session_data$log5
       rv$log6 <- session_data$log6
       rv$log7 <- session_data$log7
-      rv$log8 <- if (!is.null(session_data$log8)) session_data$log8 else ""
+      rv$log8 <- session_data$log8
       rv$log9 <- if (!is.null(session_data$log9)) session_data$log9 else ""
       rv$log10 <- if (!is.null(session_data$log10)) session_data$log10 else ""
+      rv$log11 <- if (!is.null(session_data$log11)) session_data$log11 else ""
 
       # Restore UI inputs
       updateTextInput(session, "data_path", value = session_data$data_path)
@@ -1778,8 +1879,8 @@ server <- function(input, output, session) {
       if (3 %in% rv$completed_steps) rv$filt_qplots_ready <- TRUE
 
       # Navigate to first incomplete step
-      all_steps <- 1:10
-      next_step <- min(setdiff(all_steps, rv$completed_steps), 10)
+      all_steps <- 1:8
+      next_step <- min(setdiff(all_steps, rv$completed_steps), 8)
       rv$current_step <- next_step
 
       # Validate file paths
@@ -1834,9 +1935,9 @@ server <- function(input, output, session) {
     # We can't check data_path yet (empty on startup), so check home dir
     # The user will see the startup modal
     showModal(modalDialog(
-      title = "DADA2 Pipeline",
+      title = "DADA2 ITS Pipeline",
       div(style = "text-align: center; margin-bottom: 16px;",
-        div(class = "app-logo", style = "margin: 0 auto 12px; width: 56px; height: 56px; font-size: 20px;", "16S"),
+        div(class = "app-logo", style = "margin: 0 auto 12px; width: 56px; height: 56px; font-size: 20px;", "ITS"),
         div(style = "font-size: 16px; font-weight: 500; color: var(--text-primary);", "Welcome to the DADA2 Analysis Pipeline")
       ),
       div(style = "color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;",
@@ -1863,7 +1964,7 @@ server <- function(input, output, session) {
     if (file.exists(session_file)) {
       tryCatch({
         load(session_file)
-        step_names <- c("Setup & Files", "Quality Profiles", "Filter & Trim",
+        step_names <- c("Setup & Files", "Primer Removal", "Quality Profiles", "Filter & Trim",
                         "Dereplication", "Merge & Chimeras", "Taxonomy", "Phyloseq", "Figures", "PERMANOVA", "ANCOM-BC2")
         completed <- session_data$completed_steps
         last_step <- if (length(completed) > 0) max(completed) else 0
@@ -1919,7 +2020,7 @@ server <- function(input, output, session) {
       # User is going back to a completed step - warn about invalidation
       later_steps <- rv$completed_steps[rv$completed_steps > step]
       if (length(later_steps) > 0) {
-        step_names <- c("Setup & Files", "Quality Profiles", "Filter & Trim",
+        step_names <- c("Setup & Files", "Primer Removal", "Quality Profiles", "Filter & Trim",
                         "Dereplication", "Merge & Chimeras", "Taxonomy", "Phyloseq", "Figures", "PERMANOVA", "ANCOM-BC2")
         invalidated <- paste(step_names[later_steps], collapse = ", ")
         showNotification(
@@ -1953,38 +2054,43 @@ server <- function(input, output, session) {
   output$log8 <- renderUI(HTML(rv$log8))
   output$log9 <- renderUI(HTML(rv$log9))
   output$log10 <- renderUI(HTML(rv$log10))
+  output$log11 <- renderUI(HTML(rv$log11))
 
   # ── Navigation ──────────────────────────────────────────────────────────
   observe({
     step <- rv$current_step
     completed <- rv$completed_steps
-    for (i in 1:10) {
+    for (i in 1:11) {
       toggleClass(id = paste0("step_nav_", i), class = "active", condition = (i == step))
       toggleClass(id = paste0("step_nav_", i), class = "completed", condition = (i %in% completed & i != step))
       toggle(id = paste0("panel_step", i), condition = (i == step))
     }
     # Enable/disable proceed buttons based on step completion
-    for (i in 1:7) {
+    for (i in 4:8) {
       toggleState(id = paste0("proceed_", i), condition = (i %in% completed))
     }
-    # Proceed to PERMANOVA and ANCOM-BC2 are always enabled
-    shinyjs::enable("proceed_8")
+    # These proceed buttons are always enabled
+    shinyjs::enable("proceed_1")
+    shinyjs::enable("proceed_2")
+    shinyjs::enable("proceed_3")
     shinyjs::enable("proceed_9")
+    shinyjs::enable("proceed_10")
   })
 
   # Proceed button click handlers
   observeEvent(input$proceed_1, { rv$current_step <- 2 })
-  observeEvent(input$proceed_2, { rv$current_step <- 3 })
-  observeEvent(input$proceed_3, { rv$current_step <- 4 })
+  observeEvent(input$proceed_2, { rv$current_step <- 4 })
+  observeEvent(input$proceed_3, { rv$current_step <- 3 })
   observeEvent(input$proceed_4, { rv$current_step <- 5 })
   observeEvent(input$proceed_5, { rv$current_step <- 6 })
   observeEvent(input$proceed_6, { rv$current_step <- 7 })
   observeEvent(input$proceed_7, { rv$current_step <- 8 })
-  observeEvent(input$proceed_8, {
-    rv$completed_steps <- union(rv$completed_steps, 8)
-    rv$current_step <- 9
+  observeEvent(input$proceed_8, { rv$current_step <- 9 })
+  observeEvent(input$proceed_9, {
+    rv$completed_steps <- union(rv$completed_steps, 9)
+    rv$current_step <- 10
   })
-  observeEvent(input$proceed_9, { rv$current_step <- 10 })
+  observeEvent(input$proceed_10, { rv$current_step <- 11 })
 
   # ═══════════════════════════════════════════════════════════════════════
   # STEP 1: Scan files & extract samples
@@ -2133,6 +2239,315 @@ server <- function(input, output, session) {
               rownames = FALSE, class = 'compact')
   })
 
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 3: Primer Removal
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # Dynamic primer inputs
+  rv$n_fwd_primers <- 1
+  rv$n_rev_primers <- 1
+
+  output$fwd_primer_inputs <- renderUI({
+    n <- rv$n_fwd_primers
+    lapply(1:n, function(i) {
+      # Preserve existing value if already entered
+      existing_val <- isolate(input[[paste0("fwd_primer_", i)]])
+      textInput(paste0("fwd_primer_", i),
+                paste0("FWD Primer ", i),
+                value = if (!is.null(existing_val)) existing_val else "",
+                placeholder = "e.g. ACCTGCGGARGGATCA")
+    })
+  })
+
+  output$rev_primer_inputs <- renderUI({
+    n <- rv$n_rev_primers
+    lapply(1:n, function(i) {
+      existing_val <- isolate(input[[paste0("rev_primer_", i)]])
+      textInput(paste0("rev_primer_", i),
+                paste0("REV Primer ", i),
+                value = if (!is.null(existing_val)) existing_val else "",
+                placeholder = "e.g. GAGATCCRTTGYTRAAAGTT")
+    })
+  })
+
+  observeEvent(input$btn_add_fwd_primer, { rv$n_fwd_primers <- rv$n_fwd_primers + 1 })
+  observeEvent(input$btn_add_rev_primer, { rv$n_rev_primers <- rv$n_rev_primers + 1 })
+
+  # Helper: collect all entered primers
+  get_fwd_primers <- function() {
+    primers <- c()
+    for (i in 1:rv$n_fwd_primers) {
+      val <- input[[paste0("fwd_primer_", i)]]
+      if (!is.null(val) && nzchar(trimws(val))) primers <- c(primers, trimws(val))
+    }
+    primers
+  }
+
+  get_rev_primers <- function() {
+    primers <- c()
+    for (i in 1:rv$n_rev_primers) {
+      val <- input[[paste0("rev_primer_", i)]]
+      if (!is.null(val) && nzchar(trimws(val))) primers <- c(primers, trimws(val))
+    }
+    primers
+  }
+
+  # Helper: get all primer orientations
+  allOrients <- function(primer) {
+    dna <- DNAString(primer)
+    orients <- c(Forward = dna, Complement = Biostrings::complement(dna),
+                 Reverse = Biostrings::reverse(dna),
+                 RevComp = Biostrings::reverseComplement(dna))
+    sapply(orients, toString)
+  }
+
+  # Helper: count primer hits
+  primerHits <- function(primer, fn) {
+    nhits <- vcountPattern(primer, sread(readFastq(fn)), fixed = FALSE)
+    sum(nhits > 0)
+  }
+
+  # Detect/install cutadapt
+  observeEvent(input$btn_detect_cutadapt, {
+    add_log(3, "Detecting cutadapt...")
+    rv$cutadapt_found <- FALSE
+    # Try the provided path first
+    ca_path <- trimws(input$cutadapt_path)
+    found <- tryCatch({
+      res <- system2(ca_path, "--version", stdout = TRUE, stderr = TRUE)
+      # system2 returns character output on success, or sets attr(,"status") on failure
+      status <- attr(res, "status")
+      is.null(status) || status == 0
+    }, error = function(e) FALSE, warning = function(w) FALSE)
+
+    if (found) {
+      add_log(3, paste("cutadapt found:", ca_path), "success")
+      rv$cutadapt_found <- TRUE
+    } else {
+      # Try system cutadapt
+      found2 <- tryCatch({
+        res <- system2("cutadapt", "--version", stdout = TRUE, stderr = TRUE)
+        status <- attr(res, "status")
+        is.null(status) || status == 0
+      }, error = function(e) FALSE, warning = function(w) FALSE)
+
+      if (found2) {
+        updateTextInput(session, "cutadapt_path", value = "cutadapt")
+        add_log(3, "cutadapt found in system PATH.", "success")
+        rv$cutadapt_found <- TRUE
+      } else {
+        add_log(3, "cutadapt not found. Attempting to install via pip...", "warn")
+        tryCatch({
+          system2("pip3", c("install", "cutadapt"), stdout = TRUE, stderr = TRUE)
+          res <- system2("cutadapt", "--version", stdout = TRUE, stderr = TRUE)
+          status <- attr(res, "status")
+          if (!is.null(status) && status != 0) stop("cutadapt not working after install")
+          updateTextInput(session, "cutadapt_path", value = "cutadapt")
+          add_log(3, "cutadapt installed successfully.", "success")
+          rv$cutadapt_found <- TRUE
+        }, error = function(e) {
+          tryCatch({
+            system2("pip", c("install", "cutadapt"), stdout = TRUE, stderr = TRUE)
+            res <- system2("cutadapt", "--version", stdout = TRUE, stderr = TRUE)
+            status <- attr(res, "status")
+            if (!is.null(status) && status != 0) stop("cutadapt not working after install")
+            updateTextInput(session, "cutadapt_path", value = "cutadapt")
+            add_log(3, "cutadapt installed successfully.", "success")
+            rv$cutadapt_found <- TRUE
+          }, error = function(e2) {
+            add_log(3, paste("Failed to install cutadapt:", e2$message), "error")
+            add_log(3, "Please install cutadapt manually: pip install cutadapt", "error")
+          })
+        })
+      }
+    }
+  })
+
+  output$cutadapt_status <- renderUI({
+    if (rv$cutadapt_found) {
+      div(style = "margin-top: 8px; color: var(--accent-emerald); font-size: 13px;",
+          icon("check-circle"), " cutadapt is available")
+    } else { NULL }
+  })
+
+  # Check primer orientations
+  observeEvent(input$btn_check_primers, {
+    req(rv$fnFs, rv$fnRs)
+    FWD_list <- get_fwd_primers()
+    REV_list <- get_rev_primers()
+
+    if (length(FWD_list) == 0 || length(REV_list) == 0) {
+      add_log(3, "Please enter at least one forward and one reverse primer.", "error")
+      return()
+    }
+
+    add_log(3, "Pre-filtering reads to remove Ns...")
+    set_progress(3, 0, "Pre-filtering Ns and checking primers...", "running")
+    path <- trimws(input$data_path)
+
+    # Pre-filter Ns (automatic)
+    filt_dir <- file.path(path, "filtN")
+    if (!dir.exists(filt_dir)) dir.create(filt_dir, recursive = TRUE)
+    fnFs_filtN <- file.path(filt_dir, basename(rv$fnFs))
+    fnRs_filtN <- file.path(filt_dir, basename(rv$fnRs))
+
+    tryCatch({
+      filterAndTrim(rv$fnFs, fnFs_filtN, rv$fnRs, fnRs_filtN, maxN = 0, multithread = FALSE)
+      rv$fnFs_filtN <- fnFs_filtN[file.exists(fnFs_filtN)]
+      rv$fnRs_filtN <- fnRs_filtN[file.exists(fnRs_filtN)]
+      add_log(3, "N-filtering complete.", "success")
+
+      # Count primer hits for all primers
+      add_log(3, "Counting primer orientations in first sample...")
+      all_hits <- list()
+      for (fwd in FWD_list) {
+        FWD.orients <- allOrients(fwd)
+        all_hits[[paste0("FWD(", fwd, ").FwdReads")]] <- sapply(FWD.orients, primerHits, fn = rv$fnFs_filtN[[1]])
+        all_hits[[paste0("FWD(", fwd, ").RevReads")]] <- sapply(FWD.orients, primerHits, fn = rv$fnRs_filtN[[1]])
+      }
+      for (rev in REV_list) {
+        REV.orients <- allOrients(rev)
+        all_hits[[paste0("REV(", rev, ").FwdReads")]] <- sapply(REV.orients, primerHits, fn = rv$fnFs_filtN[[1]])
+        all_hits[[paste0("REV(", rev, ").RevReads")]] <- sapply(REV.orients, primerHits, fn = rv$fnRs_filtN[[1]])
+      }
+      hits <- do.call(rbind, all_hits)
+      rv$primer_hits_before <- hits
+      set_progress(3, 0, "", "idle")
+      add_log(3, "Primer orientation check complete. Review the table below.", "success")
+    }, error = function(e) {
+      add_log(3, paste("Error:", e$message), "error")
+      set_progress(3, 0, paste("Error:", e$message), "error")
+    })
+  })
+
+  output$primer_hits_table <- renderDT({
+    req(rv$primer_hits_before)
+    df <- as.data.frame(rv$primer_hits_before)
+    df$ReadType <- rownames(df)
+    df <- df[, c("ReadType", "Forward", "Complement", "Reverse", "RevComp")]
+    datatable(df, options = list(dom = "t", pageLength = 10), rownames = FALSE, class = "compact")
+  })
+
+  # Run cutadapt
+  observeEvent(input$btn_run_cutadapt, {
+    req(rv$fnFs_filtN, rv$fnRs_filtN)
+    FWD_list <- get_fwd_primers()
+    REV_list <- get_rev_primers()
+
+    if (length(FWD_list) == 0 || length(REV_list) == 0) {
+      add_log(3, "Please enter at least one forward and one reverse primer.", "error")
+      return()
+    }
+
+    add_log(3, "Running cutadapt to remove primers...")
+    set_progress(3, 0, "Running cutadapt...", "running")
+
+    path <- trimws(input$data_path)
+    cutadapt <- trimws(input$cutadapt_path)
+
+    # Build cutadapt primer args for multiple primers
+    # -g for each FWD primer, -a for each REV primer RC (on R1)
+    # -G for each REV primer, -A for each FWD primer RC (on R2)
+    fwd_args <- c()
+    rev_args <- c()
+    for (fwd in FWD_list) {
+      fwd_rc <- toString(reverseComplement(DNAString(fwd)))
+      fwd_args <- c(fwd_args, "-g", fwd)
+      rev_args <- c(rev_args, "-A", fwd_rc)
+    }
+    for (rev in REV_list) {
+      rev_rc <- toString(reverseComplement(DNAString(rev)))
+      fwd_args <- c(fwd_args, "-a", rev_rc)
+      rev_args <- c(rev_args, "-G", rev)
+    }
+    n_rounds <- length(FWD_list) + length(REV_list)
+
+    # Output directory for cutadapt-trimmed files
+    path_cut <- file.path(path, "cutadapt")
+    if (!dir.exists(path_cut)) dir.create(path_cut, recursive = TRUE)
+
+    # Use original sample file basenames (not filtN paths)
+    fnFs_cut <- file.path(path_cut, basename(rv$fnFs))
+    fnRs_cut <- file.path(path_cut, basename(rv$fnRs))
+
+    tryCatch({
+      for (i in seq_along(rv$fnFs_filtN)) {
+        stderr_file <- tempfile()
+        res <- system2(cutadapt, args = c(
+          fwd_args, rev_args,
+          "-n", as.character(n_rounds), "--discard-untrimmed",
+          "-o", shQuote(fnFs_cut[i]), "-p", shQuote(fnRs_cut[i]),
+          shQuote(rv$fnFs_filtN[i]), shQuote(rv$fnRs_filtN[i])
+        ), stdout = TRUE, stderr = stderr_file)
+
+        exit_status <- attr(res, "status")
+        if (!is.null(exit_status) && exit_status != 0) {
+          stderr_msg <- paste(readLines(stderr_file, warn = FALSE), collapse = " ")
+          add_log(3, paste("Cutadapt error for sample", basename(rv$fnFs[i]), ":", stderr_msg), "error")
+        }
+        unlink(stderr_file)
+
+        if (!file.exists(fnFs_cut[i]) || file.info(fnFs_cut[i])$size == 0) {
+          add_log(3, paste("Warning: cutadapt produced no output for sample", basename(rv$fnFs[i]),
+                           "- primers may not match or all reads discarded"), "warn")
+        }
+
+        pct <- round(i / length(rv$fnFs_filtN) * 100)
+        set_progress(3, pct, paste0("Cutadapt: processing sample ", i, "/", length(rv$fnFs_filtN), "..."), "running")
+      }
+
+      # Only keep files that exist and are non-empty
+      existing <- file.exists(fnFs_cut) & file.exists(fnRs_cut) &
+                  file.info(fnFs_cut)$size > 0 & file.info(fnRs_cut)$size > 0
+      rv$fnFs_cut <- fnFs_cut[existing]
+      rv$fnRs_cut <- fnRs_cut[existing]
+
+      if (sum(existing) == 0) {
+        add_log(3, "Error: cutadapt produced no output files.", "error")
+        add_log(3, "Common causes: (1) Primer sequences do not match your reads. (2) --discard-untrimmed removes all reads when primers are not found. (3) Wrong primer orientation.", "error")
+        add_log(3, "Check the primer hit counts table above to verify primers are present in your reads.", "error")
+        set_progress(3, 0, "No output files produced", "error")
+        return()
+      }
+
+      add_log(3, paste("Cutadapt completed.", sum(existing), "of", length(fnFs_cut), "samples processed."), "success")
+
+      # Verify primer removal on first successfully trimmed sample using first primer pair
+      FWD.orients <- allOrients(FWD_list[1])
+      REV.orients <- allOrients(REV_list[1])
+      hits_after <- rbind(
+        FWD.ForwardReads = sapply(FWD.orients, primerHits, fn = rv$fnFs_cut[[1]]),
+        FWD.ReverseReads = sapply(FWD.orients, primerHits, fn = rv$fnRs_cut[[1]]),
+        REV.ForwardReads = sapply(REV.orients, primerHits, fn = rv$fnFs_cut[[1]]),
+        REV.ReverseReads = sapply(REV.orients, primerHits, fn = rv$fnRs_cut[[1]])
+      )
+      rv$primer_hits_after_data <- hits_after
+
+      total_remaining <- sum(hits_after)
+      if (total_remaining == 0) {
+        add_log(3, "All primers successfully removed!", "success")
+      } else {
+        add_log(3, paste("Warning:", total_remaining, "primer hits remaining. Check results."), "warn")
+      }
+
+      set_progress(3, 100, "Primer removal complete", "done")
+      rv$completed_steps <- union(rv$completed_steps, 3)
+      auto_save_session()
+    }, error = function(e) {
+      add_log(3, paste("Cutadapt error:", e$message), "error")
+      set_progress(3, 0, paste("Error:", e$message), "error")
+    })
+  })
+
+  output$primer_hits_after <- renderDT({
+    req(rv$primer_hits_after_data)
+    df <- as.data.frame(rv$primer_hits_after_data)
+    df$ReadType <- rownames(df)
+    df <- df[, c("ReadType", "Forward", "Complement", "Reverse", "RevComp")]
+    datatable(df, options = list(dom = "t", pageLength = 10), rownames = FALSE, class = "compact")
+  })
+
   # ═══════════════════════════════════════════════════════════════════════
   # STEP 2: Quality Profiles
   # ═══════════════════════════════════════════════════════════════════════
@@ -2145,11 +2560,11 @@ server <- function(input, output, session) {
     rv$qplots_ready <- TRUE
 
     output$qplot_fwd <- renderPlot({
-      plotQualityProfile(rv$fnFs[1:n]) + ggtitle("Forward Reads Quality Profile")
+      plotQualityProfile(if (!is.null(rv$fnFs_cut)) rv$fnFs_cut[1:n] else rv$fnFs[1:n]) + ggtitle("Forward Reads Quality Profile")
     })
 
     output$qplot_rev <- renderPlot({
-      plotQualityProfile(rv$fnRs[1:n]) + ggtitle("Reverse Reads Quality Profile")
+      plotQualityProfile(if (!is.null(rv$fnRs_cut)) rv$fnRs_cut[1:n] else rv$fnRs[1:n]) + ggtitle("Reverse Reads Quality Profile")
     })
 
     add_log(2, "Quality plots generated. Use these to set truncation lengths in Step 3.", "success")
@@ -2183,13 +2598,13 @@ server <- function(input, output, session) {
   })
 
   # ═══════════════════════════════════════════════════════════════════════
-  # STEP 3: Filter & Trim (async with r_bg for instant UI feedback)
+  # STEP 4: Filter & Trim (async with r_bg for instant UI feedback)
   # ═══════════════════════════════════════════════════════════════════════
 
   observeEvent(input$btn_filter, {
     req(rv$fnFs, rv$fnRs, rv$sample_names)
     path <- trimws(input$data_path)
-    add_log(3, "Starting filter & trim...")
+    add_log(4, "Starting filter & trim...")
 
     filtFs <- file.path(path, "filtered", paste0(rv$sample_names, "_F_filt.fastq.gz"))
     filtRs <- file.path(path, "filtered", paste0(rv$sample_names, "_R_filt.fastq.gz"))
@@ -2201,24 +2616,27 @@ server <- function(input, output, session) {
     rv$pending_filtRs <- filtRs
 
     # Show running indicator instantly
-    set_progress(3, 0, "Launching filterAndTrim (multithreaded)...", "running")
+    set_progress(4, 0, "Launching filterAndTrim (multithreaded)...", "running")
     shinyjs::disable("btn_filter")
 
     # Launch background process
     rv$bg_filter <- callr::r_bg(
-      function(fnFs, filtFs, fnRs, filtRs, truncLen, maxN, maxEE, truncQ, rm_phix, compress, mt) {
+      function(fnFs, filtFs, fnRs, filtRs, maxN, maxEE, truncQ, minLen, rm_phix, compress, mt) {
         library(dada2)
         filterAndTrim(fnFs, filtFs, fnRs, filtRs,
-                      truncLen = truncLen, maxN = maxN, maxEE = maxEE,
-                      truncQ = truncQ, rm.phix = rm_phix,
+                      maxN = maxN, maxEE = maxEE,
+                      truncQ = truncQ, minLen = minLen, rm.phix = rm_phix,
                       compress = compress, multithread = mt)
       },
       args = list(
-        fnFs = rv$fnFs, filtFs = filtFs, fnRs = rv$fnRs, filtRs = filtRs,
-        truncLen = c(input$truncLen_fwd, input$truncLen_rev),
+        fnFs = if (!is.null(rv$fnFs_cut)) rv$fnFs_cut else rv$fnFs,
+        filtFs = filtFs, 
+        fnRs = if (!is.null(rv$fnRs_cut)) rv$fnRs_cut else rv$fnRs,
+        filtRs = filtRs,
         maxN = input$maxN,
         maxEE = c(input$maxEE_fwd, input$maxEE_rev),
         truncQ = input$truncQ,
+        minLen = input$minLen,
         rm_phix = input$rm_phix,
         compress = input$compress_out,
         mt = can_multithread
@@ -2234,7 +2652,7 @@ server <- function(input, output, session) {
     if (rv$bg_filter$is_alive()) {
       elapsed <- as.numeric(difftime(Sys.time(), rv$bg_filter_start, units = "secs"))
       elapsed_txt <- if (elapsed > 60) paste0(round(elapsed/60, 1), " min") else paste0(round(elapsed), "s")
-      set_progress(3, 0, paste0("Running filterAndTrim... (", elapsed_txt, " elapsed)"), "running")
+      set_progress(4, 0, paste0("Running filterAndTrim... (", elapsed_txt, " elapsed)"), "running")
       invalidateLater(1000)
     } else {
       tryCatch({
@@ -2249,7 +2667,7 @@ server <- function(input, output, session) {
         existing <- file.exists(filtFs)
         if (sum(existing) < length(rv$sample_names)) {
           dropped <- rv$sample_names[!existing]
-          add_log(3, paste("Dropped", length(dropped), "samples with 0 reads after filtering:", paste(dropped, collapse = ", ")), "warn")
+          add_log(4, paste("Dropped", length(dropped), "samples with 0 reads after filtering:", paste(dropped, collapse = ", ")), "warn")
           rv$sample_names <- rv$sample_names[existing]
           rv$fnFs <- rv$fnFs[existing]
           rv$fnRs <- rv$fnRs[existing]
@@ -2260,13 +2678,13 @@ server <- function(input, output, session) {
         total_in <- sum(out[, "reads.in"])
         total_out <- sum(out[, "reads.out"])
         pct <- round(total_out / total_in * 100, 1)
-        add_log(3, paste("Filtering complete.", total_out, "/", total_in, "reads passed (", pct, "%)."), "success")
-        set_progress(3, 100, "Filter & trim complete", "done")
-        rv$completed_steps <- union(rv$completed_steps, 3)
+        add_log(4, paste("Filtering complete.", total_out, "/", total_in, "reads passed (", pct, "%)."), "success")
+        set_progress(4, 100, "Filter & trim complete", "done")
+        rv$completed_steps <- union(rv$completed_steps, 4)
       auto_save_session()
       }, error = function(e) {
-        add_log(3, paste("Error:", e$message), "error")
-        set_progress(3, 0, paste("Error:", e$message), "error")
+        add_log(4, paste("Error:", e$message), "error")
+        set_progress(4, 0, paste("Error:", e$message), "error")
       })
       shinyjs::enable("btn_filter")
       rv$bg_filter <- NULL
@@ -2341,7 +2759,7 @@ server <- function(input, output, session) {
     content = function(file) {
       req(rv$fnFs)
       n <- min(input$qp_n_samples, length(rv$fnFs))
-      p <- plotQualityProfile(rv$fnFs[1:n]) + ggtitle("Forward Reads Quality Profile")
+      p <- plotQualityProfile(if (!is.null(rv$fnFs_cut)) rv$fnFs_cut[1:n] else rv$fnFs[1:n]) + ggtitle("Forward Reads Quality Profile")
       ggsave(file, plot = p, width = 10, height = 6, dpi = 300, bg = "white")
     }
   )
@@ -2350,7 +2768,7 @@ server <- function(input, output, session) {
     content = function(file) {
       req(rv$fnRs)
       n <- min(input$qp_n_samples, length(rv$fnRs))
-      p <- plotQualityProfile(rv$fnRs[1:n]) + ggtitle("Reverse Reads Quality Profile")
+      p <- plotQualityProfile(if (!is.null(rv$fnRs_cut)) rv$fnRs_cut[1:n] else rv$fnRs[1:n]) + ggtitle("Reverse Reads Quality Profile")
       ggsave(file, plot = p, width = 10, height = 6, dpi = 300, bg = "white")
     }
   )
@@ -2376,13 +2794,13 @@ server <- function(input, output, session) {
   )
 
   # ═══════════════════════════════════════════════════════════════════════
-  # STEP 4: Learn Errors & Dereplication (async state machine)
+  # STEP 5: Learn Errors & Dereplication (async state machine)
   # ═══════════════════════════════════════════════════════════════════════
 
   observeEvent(input$btn_denoise, {
     req(rv$filtFs, rv$filtRs)
-    add_log(4, "Starting error learning & dereplication pipeline...")
-    set_progress(4, 0, "Launching forward error learning...", "running")
+    add_log(5, "Starting error learning & dereplication pipeline...")
+    set_progress(5, 0, "Launching forward error learning...", "running")
     shinyjs::disable("btn_denoise")
     rv$denoise_stage <- 1  # 1=errF, 2=errR, 3=dadaF, 4=dadaR
     rv$bg_denoise_start <- Sys.time()
@@ -2404,7 +2822,7 @@ server <- function(input, output, session) {
       stage_labels <- c("Learning forward error model...", "Learning reverse error model...",
                         "Dereplicating forward reads...", "Dereplicating reverse reads...")
       stage_pcts <- c(5, 30, 55, 80)
-      set_progress(4, stage_pcts[rv$denoise_stage],
+      set_progress(5, stage_pcts[rv$denoise_stage],
                    paste0(stage_labels[rv$denoise_stage], " (", elapsed_txt, " elapsed)"), "running")
       invalidateLater(1000)
     } else {
@@ -2414,7 +2832,7 @@ server <- function(input, output, session) {
 
         if (stage == 1) {
           rv$errF <- result
-          add_log(4, "Forward error model learned.", "success")
+          add_log(5, "Forward error model learned.", "success")
           rv$denoise_stage <- 2
           rv$bg_denoise_start <- Sys.time()
           rv$bg_denoise <- callr::r_bg(
@@ -2423,7 +2841,7 @@ server <- function(input, output, session) {
           )
         } else if (stage == 2) {
           rv$errR <- result
-          add_log(4, "Reverse error model learned.", "success")
+          add_log(5, "Reverse error model learned.", "success")
           rv$denoise_stage <- 3
           rv$bg_denoise_start <- Sys.time()
           rv$bg_denoise <- callr::r_bg(
@@ -2432,7 +2850,7 @@ server <- function(input, output, session) {
           )
         } else if (stage == 3) {
           rv$dadaFs <- result
-          add_log(4, "Forward reads dereplicated.", "success")
+          add_log(5, "Forward reads dereplicated.", "success")
           rv$denoise_stage <- 4
           rv$bg_denoise_start <- Sys.time()
           rv$bg_denoise <- callr::r_bg(
@@ -2441,16 +2859,16 @@ server <- function(input, output, session) {
           )
         } else if (stage == 4) {
           rv$dadaRs <- result
-          add_log(4, "Reverse reads dereplicated.", "success")
-          set_progress(4, 100, "Error learning & dereplication complete", "done")
-          rv$completed_steps <- union(rv$completed_steps, 4)
+          add_log(5, "Reverse reads dereplicated.", "success")
+          set_progress(5, 100, "Error learning & dereplication complete", "done")
+          rv$completed_steps <- union(rv$completed_steps, 5)
       auto_save_session()
           shinyjs::enable("btn_denoise")
           rv$bg_denoise <- NULL
         }
       }, error = function(e) {
-        add_log(4, paste("Error:", e$message), "error")
-        set_progress(4, 0, paste("Error:", e$message), "error")
+        add_log(5, paste("Error:", e$message), "error")
+        set_progress(5, 0, paste("Error:", e$message), "error")
         shinyjs::enable("btn_denoise")
         rv$bg_denoise <- NULL
       })
@@ -2482,13 +2900,13 @@ server <- function(input, output, session) {
   })
 
   # ═══════════════════════════════════════════════════════════════════════
-  # STEP 5: Merge & Chimera Removal
+  # STEP 6: Merge & Chimera Removal
   # ═══════════════════════════════════════════════════════════════════════
 
   observeEvent(input$btn_merge, {
     req(rv$dadaFs, rv$dadaRs, rv$filtFs, rv$filtRs)
-    add_log(5, "Merging paired reads...")
-    set_progress(5, 0, "Merging paired reads...", "running")
+    add_log(6, "Merging paired reads...")
+    set_progress(6, 0, "Merging paired reads...", "running")
     shinyjs::disable("btn_merge")
     rv$bg_merge_start <- Sys.time()
     rv$merge_stage <- 1  # 1=merge+seqtab, 2=chimera removal
@@ -2497,14 +2915,14 @@ server <- function(input, output, session) {
     tryCatch({
       mergers <- mergePairs(rv$dadaFs, rv$filtFs, rv$dadaRs, rv$filtRs, verbose = FALSE)
       rv$mergers <- mergers
-      add_log(5, "Paired reads merged.", "success")
+      add_log(6, "Paired reads merged.", "success")
 
       seqtab <- makeSequenceTable(mergers)
       rv$seqtab <- seqtab
-      add_log(5, paste("Sequence table:", nrow(seqtab), "samples,", ncol(seqtab), "ASVs."), "info")
+      add_log(6, paste("Sequence table:", nrow(seqtab), "samples,", ncol(seqtab), "ASVs."), "info")
 
       # Stage 2: chimera removal (slow, run in background)
-      set_progress(5, 40, "Removing chimeras (multithreaded)...", "running")
+      set_progress(6, 40, "Removing chimeras (multithreaded)...", "running")
       rv$merge_stage <- 2
       rv$bg_merge_start <- Sys.time()
       rv$bg_merge <- callr::r_bg(
@@ -2516,8 +2934,8 @@ server <- function(input, output, session) {
         supervise = TRUE
       )
     }, error = function(e) {
-      add_log(5, paste("Error during merge:", e$message), "error")
-      set_progress(5, 0, paste("Error:", e$message), "error")
+      add_log(6, paste("Error during merge:", e$message), "error")
+      set_progress(6, 0, paste("Error:", e$message), "error")
       shinyjs::enable("btn_merge")
     })
   })
@@ -2528,14 +2946,14 @@ server <- function(input, output, session) {
     if (rv$bg_merge$is_alive()) {
       elapsed <- as.numeric(difftime(Sys.time(), rv$bg_merge_start, units = "secs"))
       elapsed_txt <- if (elapsed > 60) paste0(round(elapsed/60, 1), " min") else paste0(round(elapsed), "s")
-      set_progress(5, 40, paste0("Removing chimeras... (", elapsed_txt, " elapsed)"), "running")
+      set_progress(6, 40, paste0("Removing chimeras... (", elapsed_txt, " elapsed)"), "running")
       invalidateLater(1000)
     } else {
       tryCatch({
         seqtab_nochim <- rv$bg_merge$get_result()
         rv$seqtab_nochim <- seqtab_nochim
         pct <- round(sum(seqtab_nochim) / sum(rv$seqtab) * 100, 1)
-        add_log(5, paste("Chimera removal complete.", ncol(seqtab_nochim), "ASVs retained.",
+        add_log(6, paste("Chimera removal complete.", ncol(seqtab_nochim), "ASVs retained.",
                          pct, "% of reads retained."), "success")
 
         # Build tracking table
@@ -2551,12 +2969,12 @@ server <- function(input, output, session) {
         rownames(track) <- rv$sample_names
         rv$track <- track
 
-        set_progress(5, 100, "Merge & chimera removal complete", "done")
-        rv$completed_steps <- union(rv$completed_steps, 5)
+        set_progress(6, 100, "Merge & chimera removal complete", "done")
+        rv$completed_steps <- union(rv$completed_steps, 6)
       auto_save_session()
       }, error = function(e) {
-        add_log(5, paste("Error:", e$message), "error")
-        set_progress(5, 0, paste("Error:", e$message), "error")
+        add_log(6, paste("Error:", e$message), "error")
+        set_progress(6, 0, paste("Error:", e$message), "error")
       })
       shinyjs::enable("btn_merge")
       rv$bg_merge <- NULL
@@ -2641,69 +3059,96 @@ server <- function(input, output, session) {
   })
 
   # ═══════════════════════════════════════════════════════════════════════
-  # STEP 6: Taxonomy
+  # STEP 7: Taxonomy
   # ═══════════════════════════════════════════════════════════════════════
 
   observeEvent(input$btn_taxonomy, {
     req(rv$seqtab_nochim)
-    add_log(6, "Starting taxonomy assignment...")
-    set_progress(6, 0, "Preparing taxonomy assignment...", "running")
+    add_log(7, "Starting taxonomy assignment...")
+    set_progress(7, 0, "Preparing taxonomy assignment...", "running")
     shinyjs::disable("btn_taxonomy")
 
     tryCatch({
-      db_dir <- input$silva_dir
-      if (!dir.exists(db_dir)) dir.create(db_dir, recursive = TRUE)
+      db_path <- trimws(input$silva_dir)
 
-      genus_file <- file.path(db_dir, basename(SILVA_GENUS_URL))
-      species_file <- file.path(db_dir, basename(SILVA_SPECIES_URL))
-
-      # Download if needed (synchronous, usually fast if cached)
-      if (!file.exists(genus_file)) {
-        set_progress(6, 5, "Downloading SILVA genus database...", "running")
-        add_log(6, "Downloading SILVA genus training set...")
-        download.file(SILVA_GENUS_URL, genus_file, mode = "wb", quiet = TRUE)
-        add_log(6, "SILVA genus database downloaded.", "success")
+      # Determine if user provided a file path or a directory
+      if (file.exists(db_path) && !file.info(db_path)$isdir) {
+        # User provided a direct file path
+        unite_file <- db_path
+        add_log(7, paste("Using UNITE database:", unite_file), "info")
+      } else if (grepl("\\.(fasta|fa|fasta\\.gz|fa\\.gz)$", db_path, ignore.case = TRUE) && file.exists(db_path)) {
+        unite_file <- db_path
+        add_log(7, paste("Using UNITE database:", unite_file), "info")
       } else {
-        add_log(6, "SILVA genus database found locally.", "info")
+        # Treat as directory
+        db_dir <- db_path
+        if (!dir.exists(db_dir)) dir.create(db_dir, recursive = TRUE)
+
+        # Look for any existing UNITE fasta in the directory
+        existing_fasta <- list.files(db_dir, pattern = "sh_general.*\\.(fasta|fa)$",
+                                     full.names = TRUE, recursive = FALSE)
+        if (length(existing_fasta) > 0) {
+          unite_file <- existing_fasta[1]
+          add_log(7, paste("UNITE database found:", basename(unite_file)), "info")
+        } else {
+          # Try to download
+          unite_file <- file.path(db_dir, "sh_general_release_dynamic.fasta")
+          set_progress(7, 5, "Downloading UNITE database...", "running")
+          add_log(7, "Downloading UNITE database...")
+          tgz_file <- file.path(db_dir, "unite_download.tgz")
+          tryCatch({
+            download.file(UNITE_URL, tgz_file, mode = "wb", quiet = TRUE)
+            untar(tgz_file, exdir = db_dir)
+            fasta_files <- list.files(db_dir, pattern = "sh_general.*\\.fasta$",
+                                      full.names = TRUE, recursive = TRUE)
+            if (length(fasta_files) > 0) {
+              file.copy(fasta_files[1], unite_file)
+            }
+            add_log(7, "UNITE database downloaded.", "success")
+          }, error = function(e) {
+            add_log(7, paste("UNITE download failed:", e$message), "error")
+            set_progress(7, 0, "Database download failed", "error")
+            shinyjs::enable("btn_taxonomy")
+            return()
+          })
+        }
       }
 
-      if (input$add_species && !file.exists(species_file)) {
-        set_progress(6, 10, "Downloading SILVA species database...", "running")
-        add_log(6, "Downloading SILVA species assignment set...")
-        download.file(SILVA_SPECIES_URL, species_file, mode = "wb", quiet = TRUE)
-        add_log(6, "SILVA species database downloaded.", "success")
+      if (!file.exists(unite_file)) {
+        add_log(7, paste("Database file not found:", db_path), "error")
+        add_log(7, "Please provide the full path to a UNITE .fasta file, or a directory containing one.", "error")
+        set_progress(7, 0, "Database not found", "error")
+        shinyjs::enable("btn_taxonomy")
+        return()
       }
 
-      set_progress(6, 15, "Launching taxonomy assignment (multithreaded)...", "running")
+      set_progress(7, 15, "Launching taxonomy assignment (multithreaded)...", "running")
       rv$bg_tax_start <- Sys.time()
 
-      # Determine which function to run in background
       if (input$tax_method == "bayesian") {
         rv$bg_tax <- callr::r_bg(
-          function(seqtab, genus_file, species_file, add_species, mt) {
+          function(seqtab, ref_db, mt) {
             library(dada2)
-            tx <- assignTaxonomy(seqtab, genus_file, multithread = mt)
-            if (add_species) tx <- addSpecies(tx, species_file)
-            tx
+            assignTaxonomy(seqtab, ref_db, multithread = mt)
           },
           args = list(
-            seqtab = rv$seqtab_nochim, genus_file = genus_file,
-            species_file = species_file, add_species = input$add_species,
+            seqtab = rv$seqtab_nochim,
+            ref_db = unite_file,
             mt = can_multithread
           ),
           supervise = TRUE
         )
       } else {
-        decipher_db <- file.path(db_dir, "SILVA_SSU_r138_2024.RData")
+        decipher_db <- file.path(db_dir, "UNITE_v2024.RData")
         if (file.exists(decipher_db)) {
-          add_log(6, "Running IdTaxa in background subprocess...", "info")
+          add_log(7, "Running IdTaxa in background subprocess...", "info")
           rv$bg_tax <- callr::r_bg(
             function(seqtab, decipher_db) {
               library(dada2); library(DECIPHER); library(Biostrings)
               dna <- DNAStringSet(getSequences(seqtab))
               load(decipher_db)
-              ids <- IdTaxa(dna, trainingSet, strand = "top", processors = NULL, verbose = FALSE)
-              ranks <- c("domain", "phylum", "class", "order", "family", "genus", "species")
+              ids <- IdTaxa(dna, trainingSet, strand = "both", processors = NULL, verbose = FALSE)
+              ranks <- c("kingdom", "phylum", "class", "order", "family", "genus", "species")
               taxid <- t(sapply(ids, function(x) {
                 m <- match(ranks, x$rank)
                 tx <- x$taxon[m]
@@ -2718,17 +3163,15 @@ server <- function(input, output, session) {
             supervise = TRUE
           )
         } else {
-          add_log(6, paste("DECIPHER training set not found. Falling back to assignTaxonomy."), "warn")
+          add_log(7, "DECIPHER training set not found. Falling back to assignTaxonomy.", "warn")
           rv$bg_tax <- callr::r_bg(
-            function(seqtab, genus_file, species_file, add_species, mt) {
+            function(seqtab, ref_db, mt) {
               library(dada2)
-              tx <- assignTaxonomy(seqtab, genus_file, multithread = mt)
-              if (add_species) tx <- addSpecies(tx, species_file)
-              tx
+              assignTaxonomy(seqtab, ref_db, multithread = mt)
             },
             args = list(
-              seqtab = rv$seqtab_nochim, genus_file = genus_file,
-              species_file = species_file, add_species = input$add_species,
+              seqtab = rv$seqtab_nochim,
+              ref_db = unite_file,
               mt = can_multithread
             ),
             supervise = TRUE
@@ -2736,8 +3179,8 @@ server <- function(input, output, session) {
         }
       }
     }, error = function(e) {
-      add_log(6, paste("Error:", e$message), "error")
-      set_progress(6, 0, paste("Error:", e$message), "error")
+      add_log(7, paste("Error:", e$message), "error")
+      set_progress(7, 0, paste("Error:", e$message), "error")
       shinyjs::enable("btn_taxonomy")
     })
   })
@@ -2748,19 +3191,19 @@ server <- function(input, output, session) {
     if (rv$bg_tax$is_alive()) {
       elapsed <- as.numeric(difftime(Sys.time(), rv$bg_tax_start, units = "secs"))
       elapsed_txt <- if (elapsed > 60) paste0(round(elapsed/60, 1), " min") else paste0(round(elapsed), "s")
-      set_progress(6, 15, paste0("Assigning taxonomy... (", elapsed_txt, " elapsed)"), "running")
+      set_progress(7, 15, paste0("Assigning taxonomy... (", elapsed_txt, " elapsed)"), "running")
       invalidateLater(1000)
     } else {
       tryCatch({
         taxa <- rv$bg_tax$get_result()
         rv$taxa <- taxa
-        add_log(6, paste("Taxonomy assigned to", nrow(taxa), "ASVs."), "success")
-        set_progress(6, 100, "Taxonomy assignment complete", "done")
-        rv$completed_steps <- union(rv$completed_steps, 6)
-      auto_save_session()
+        add_log(7, paste("Taxonomy assigned to", nrow(taxa), "ASVs."), "success")
+        set_progress(7, 100, "Taxonomy assignment complete", "done")
+        rv$completed_steps <- union(rv$completed_steps, 7)
+        auto_save_session()
       }, error = function(e) {
-        add_log(6, paste("Error:", e$message), "error")
-        set_progress(6, 0, paste("Error:", e$message), "error")
+        add_log(7, paste("Error:", e$message), "error")
+        set_progress(7, 0, paste("Error:", e$message), "error")
       })
       shinyjs::enable("btn_taxonomy")
       rv$bg_tax <- NULL
@@ -2777,7 +3220,7 @@ server <- function(input, output, session) {
   })
 
   # ═══════════════════════════════════════════════════════════════════════
-  # STEP 7: Phyloseq & Visualization
+  # STEP 8: Phyloseq & Visualization
   # ═══════════════════════════════════════════════════════════════════════
 
   # ── Metadata variable type selection (factor vs continuous) ──
@@ -2786,8 +3229,31 @@ server <- function(input, output, session) {
     meta_path <- input$metadata_file$datapath
     ext <- tools::file_ext(input$metadata_file$name)
     samdf <- tryCatch({
-      if (ext %in% c("csv")) read.csv(meta_path, row.names = 1, stringsAsFactors = FALSE)
-      else read.delim(meta_path, row.names = 1, stringsAsFactors = FALSE)
+      if (ext %in% c("csv")) {
+        df <- read.csv(meta_path, stringsAsFactors = FALSE)
+        if (ncol(df) == 1 && grepl(",", colnames(df)[1])) {
+          lines <- readLines(meta_path, warn = FALSE)
+          lines <- gsub("^\"|\"$", "", trimws(lines))
+          tmp <- tempfile(fileext = ".csv")
+          writeLines(lines, tmp)
+          df <- read.csv(tmp, stringsAsFactors = FALSE)
+          unlink(tmp)
+        }
+        rownames(df) <- df[[1]]
+        df[, -1, drop = FALSE]
+      } else {
+        df <- read.delim(meta_path, stringsAsFactors = FALSE)
+        if (ncol(df) == 1 && grepl("\t", colnames(df)[1])) {
+          lines <- readLines(meta_path, warn = FALSE)
+          lines <- gsub("^\"|\"$", "", trimws(lines))
+          tmp <- tempfile(fileext = ".tsv")
+          writeLines(lines, tmp)
+          df <- read.delim(tmp, stringsAsFactors = FALSE)
+          unlink(tmp)
+        }
+        rownames(df) <- df[[1]]
+        df[, -1, drop = FALSE]
+      }
     }, error = function(e) NULL)
     if (is.null(samdf) || ncol(samdf) == 0) return(NULL)
 
@@ -2824,45 +3290,118 @@ server <- function(input, output, session) {
 
   observeEvent(input$btn_phyloseq, {
     req(rv$seqtab_nochim, rv$taxa)
-    add_log(7, "Building phyloseq object...")
+    add_log(8, "Building phyloseq object...")
 
-    tryCatch({
-      # Handle metadata
-      samdf <- NULL
-      if (!is.null(input$metadata_file)) {
-        meta_path <- input$metadata_file$datapath
-        ext <- tools::file_ext(input$metadata_file$name)
+    # Handle metadata
+    samdf <- NULL
+    if (!is.null(input$metadata_file)) {
+      meta_path <- input$metadata_file$datapath
+      ext <- tools::file_ext(input$metadata_file$name)
+      samdf <- tryCatch({
         if (ext %in% c("csv")) {
-          samdf <- read.csv(meta_path, row.names = 1, stringsAsFactors = FALSE)
+          # Try standard read first
+          df <- read.csv(meta_path, stringsAsFactors = FALSE)
+          # Check if entire CSV was read as one quoted column (common Excel export issue)
+          if (ncol(df) == 1 && grepl(",", colnames(df)[1])) {
+            # Re-read: strip outer quotes from each line
+            lines <- readLines(meta_path, warn = FALSE)
+            lines <- gsub("^\"|\"$", "", trimws(lines))
+            tmp <- tempfile(fileext = ".csv")
+            writeLines(lines, tmp)
+            df <- read.csv(tmp, stringsAsFactors = FALSE)
+            unlink(tmp)
+          }
+          # Use first column as row names
+          rownames(df) <- df[[1]]
+          df <- df[, -1, drop = FALSE]
+          df
         } else {
-          samdf <- read.delim(meta_path, row.names = 1, stringsAsFactors = FALSE)
+          df <- read.delim(meta_path, stringsAsFactors = FALSE)
+          if (ncol(df) == 1 && grepl("\t", colnames(df)[1])) {
+            lines <- readLines(meta_path, warn = FALSE)
+            lines <- gsub("^\"|\"$", "", trimws(lines))
+            tmp <- tempfile(fileext = ".tsv")
+            writeLines(lines, tmp)
+            df <- read.delim(tmp, stringsAsFactors = FALSE)
+            unlink(tmp)
+          }
+          rownames(df) <- df[[1]]
+          df <- df[, -1, drop = FALSE]
+          df
         }
+      }, error = function(e) {
+        add_log(8, paste("Error reading metadata file:", e$message), "error")
+        showNotification(paste("Error reading metadata:", e$message), type = "error")
+        NULL
+      })
+      if (is.null(samdf)) return()
 
-        # Apply factor/continuous types from user selection
-        for (v in colnames(samdf)) {
-          vartype_input <- input[[paste0("vartype_", v)]]
-          if (!is.null(vartype_input)) {
-            if (vartype_input == "factor") {
-              samdf[[v]] <- as.factor(samdf[[v]])
-            } else {
-              samdf[[v]] <- as.numeric(as.character(samdf[[v]]))
-            }
+      # Apply factor/continuous types from user selection
+      for (v in colnames(samdf)) {
+        vartype_input <- input[[paste0("vartype_", v)]]
+        if (!is.null(vartype_input)) {
+          if (vartype_input == "factor") {
+            samdf[[v]] <- as.factor(samdf[[v]])
+          } else {
+            samdf[[v]] <- as.numeric(as.character(samdf[[v]]))
           }
         }
-
-        add_log(7, paste("Loaded metadata with", nrow(samdf), "samples and", ncol(samdf), "variables."), "success")
-      } else {
-        samdf <- data.frame(SampleID = rv$sample_names, row.names = rv$sample_names)
-        add_log(7, "No metadata uploaded. Using sample names as metadata.", "info")
       }
 
-      rv$samdf <- samdf
+      add_log(8, paste("Loaded metadata with", nrow(samdf), "samples and", ncol(samdf), "variables."), "success")
 
-      # Build phyloseq
+      # Check sample name matching
+      seqtab_samples <- rownames(rv$seqtab_nochim)
+      meta_samples <- rownames(samdf)
+      common <- intersect(seqtab_samples, meta_samples)
+      only_seq <- setdiff(seqtab_samples, meta_samples)
+      only_meta <- setdiff(meta_samples, seqtab_samples)
+
+      add_log(8, paste("Seq table samples (first 3):", paste(head(seqtab_samples, 3), collapse = ", ")), "info")
+      add_log(8, paste("Metadata row names (first 3):", paste(head(meta_samples, 3), collapse = ", ")), "info")
+      add_log(8, paste("Sample matching:", length(common), "matched,",
+                       length(only_seq), "in sequences only,",
+                       length(only_meta), "in metadata only."), "info")
+
+      if (length(common) == 0) {
+        add_log(8, "ERROR: No sample names match between sequence table and metadata!", "error")
+        showNotification("No sample names match! Check that metadata row names match your sample names.", type = "error", duration = 10)
+        return()
+      }
+
+      if (length(only_seq) > 0) {
+        add_log(8, paste("Samples in sequences but not in metadata:", paste(head(only_seq, 5), collapse = ", ")), "warn")
+      }
+      if (length(only_meta) > 0) {
+        add_log(8, paste("Samples in metadata but not in sequences:", paste(head(only_meta, 5), collapse = ", ")), "info")
+      }
+
+      # Subset both to common samples
+      samdf <- samdf[common, , drop = FALSE]
+      add_log(8, paste("Using", length(common), "matched samples."), "info")
+    } else {
+      samdf <- data.frame(SampleID = rv$sample_names, row.names = rv$sample_names)
+      add_log(8, "No metadata uploaded. Using sample names as metadata.", "info")
+    }
+
+    rv$samdf <- samdf
+
+    # Subset seqtab to matching samples
+    seqtab_use <- rv$seqtab_nochim[rownames(rv$seqtab_nochim) %in% rownames(samdf), , drop = FALSE]
+
+    add_log(8, paste("Sequence table:", nrow(seqtab_use), "samples x", ncol(seqtab_use), "ASVs"), "info")
+    add_log(8, paste("Taxonomy table:", nrow(rv$taxa), "taxa x", ncol(rv$taxa), "ranks"), "info")
+    add_log(8, paste("Metadata:", nrow(samdf), "samples x", ncol(samdf), "variables"), "info")
+
+    # Ensure taxa is a matrix
+    taxa_mat <- as.matrix(rv$taxa)
+
+    # Build phyloseq
+    tryCatch({
       ps <- phyloseq(
-        otu_table(rv$seqtab_nochim, taxa_are_rows = FALSE),
+        otu_table(seqtab_use, taxa_are_rows = FALSE),
         sample_data(samdf),
-        tax_table(rv$taxa)
+        tax_table(taxa_mat)
       )
 
       # Store DNA sequences and rename ASVs
@@ -2872,7 +3411,8 @@ server <- function(input, output, session) {
       taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
 
       rv$ps <- ps
-      add_log(7, paste("Phyloseq object created:", ntaxa(ps), "taxa,", nsamples(ps), "samples."), "success")
+      add_log(8, paste("Phyloseq object created:", ntaxa(ps), "taxa,", nsamples(ps), "samples."), "success")
+      showNotification(paste("Phyloseq created:", ntaxa(ps), "taxa,", nsamples(ps), "samples"), type = "message")
 
       # Update dropdown choices - only factor variables for grouping
       meta_vars <- colnames(samdf)
@@ -2886,10 +3426,11 @@ server <- function(input, output, session) {
       updateSelectInput(session, "bar_x", choices = factor_vars, selected = factor_vars[1])
       updateSelectInput(session, "ancom_group", choices = factor_vars, selected = factor_vars[1])
 
-      rv$completed_steps <- union(rv$completed_steps, 7)
+      rv$completed_steps <- union(rv$completed_steps, 8)
       auto_save_session()
     }, error = function(e) {
-      add_log(7, paste("Error:", e$message), "error")
+      add_log(8, paste("Phyloseq construction error:", e$message), "error")
+      showNotification(paste("Phyloseq error:", e$message), type = "error", duration = 15)
     })
   })
 
@@ -2945,36 +3486,36 @@ server <- function(input, output, session) {
              "Transformation Applied")
       ),
       div(style = "font-size: 13px; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;",
-        paste0(method_label, " \u2014 ", n_samples, " samples, ", n_taxa, " ASVs"))
+        paste0(method_label, " - ", n_samples, " samples, ", n_taxa, " ASVs"))
     )
   })
 
   observeEvent(input$btn_transform, {
     req(rv$ps)
     method <- input$transform_method
-    add_log(7, paste("Applying transformation:", method, "..."))
+    add_log(8, paste("Applying transformation:", method, "..."))
 
     tryCatch({
       if (method == "rarefy") {
         depth <- input$rarefy_depth
         ps_t <- rarefy_even_depth(rv$ps, sample.size = depth,
                                    rngseed = 42, replace = FALSE, trimOTUs = TRUE, verbose = FALSE)
-        add_log(7, paste("Rarefied to", depth, "reads/sample.", nsamples(ps_t), "samples,",
+        add_log(8, paste("Rarefied to", depth, "reads/sample.", nsamples(ps_t), "samples,",
                          ntaxa(ps_t), "ASVs retained."), "success")
       } else if (method == "relative") {
         ps_t <- transform_sample_counts(rv$ps, function(x) x / sum(x))
-        add_log(7, paste("Converted to relative abundance.", nsamples(ps_t), "samples."), "success")
+        add_log(8, paste("Converted to relative abundance.", nsamples(ps_t), "samples."), "success")
       } else if (method == "clr") {
         ps_t <- microbiome::transform(rv$ps, "clr")
-        add_log(7, paste("CLR transformation applied.", nsamples(ps_t), "samples."), "success")
+        add_log(8, paste("CLR transformation applied.", nsamples(ps_t), "samples."), "success")
       } else {
         ps_t <- rv$ps
-        add_log(7, "Using raw counts (no transformation).", "info")
+        add_log(8, "Using raw counts (no transformation).", "info")
       }
       rv$ps_transformed <- ps_t
       rv$transform_method <- method
     }, error = function(e) {
-      add_log(7, paste("Transformation error:", e$message), "error")
+      add_log(8, paste("Transformation error:", e$message), "error")
     })
   })
 
@@ -3144,14 +3685,16 @@ server <- function(input, output, session) {
   })
 
   # ── Abundance Plot ──
-  make_bar_plot <- function(ps, x_var, fill_var, top_n) {
-    top_taxa <- names(sort(taxa_sums(ps), decreasing = TRUE))[1:top_n]
-    ps_top <- transform_sample_counts(ps, function(OTU) OTU / sum(OTU))
+  make_bar_plot <- function(ps_raw, x_var, fill_var, top_n) {
+    # Always use raw counts for abundance plot, convert to relative abundance here
+    top_taxa <- names(sort(taxa_sums(ps_raw), decreasing = TRUE))[1:top_n]
+    ps_top <- transform_sample_counts(ps_raw, function(OTU) OTU / sum(OTU))
     ps_top <- prune_taxa(top_taxa, ps_top)
     p <- plot_bar(ps_top, x = x_var, fill = fill_var)
     # Remove black bar outlines by overriding geom_bar color
     p$layers[[1]]$aes_params$colour <- NA
-    p + theme_minimal(base_size = 14) +
+    p + coord_cartesian(ylim = c(0, NA)) +
+      theme_minimal(base_size = 14) +
       theme(
         plot.background = element_rect(fill = "#1a2332", color = NA),
         panel.background = element_rect(fill = "#1a2332", color = NA),
@@ -3167,7 +3710,7 @@ server <- function(input, output, session) {
 
   output$bar_plot <- renderPlot({
     req(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
-    make_bar_plot(get_active_ps(), input$bar_x, input$bar_fill, input$bar_top_n)
+    make_bar_plot(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
   })
 
   # ── PCoA Ordination Plot ──
@@ -3335,7 +3878,7 @@ server <- function(input, output, session) {
     filename = function() paste0("Abundance_Plot_", Sys.Date(), ".png"),
     content = function(file) {
       req(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
-      p <- make_bar_plot(get_active_ps(), input$bar_x, input$bar_fill, input$bar_top_n)
+      p <- make_bar_plot(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
       ggsave(file, plot = p, width = 12, height = 8, dpi = 300, bg = "#1a2332")
     }
   )
@@ -3373,7 +3916,7 @@ server <- function(input, output, session) {
   )
 
   # ═══════════════════════════════════════════════════════════════════════
-  # STEP 9: PERMANOVA
+  # STEP 10: PERMANOVA
   # ═══════════════════════════════════════════════════════════════════════
 
   # Command preview
@@ -3402,10 +3945,24 @@ server <- function(input, output, session) {
     req(rv$ps)
     formula_text <- trimws(input$permanova_formula)
     if (!nzchar(formula_text)) {
-      add_log(9, "Please enter a formula.", "error")
+      add_log(10, "Please enter a formula.", "error")
       return()
     }
-    add_log(9, paste("Running PERMANOVA with formula:", formula_text, "..."))
+
+    # Validate formula variables against metadata
+    ps_active <- get_active_ps()
+    sdata <- as(sample_data(ps_active), "data.frame")
+    formula_vars <- unique(trimws(unlist(strsplit(formula_text, "[+*: ]+"))))
+    formula_vars <- formula_vars[nzchar(formula_vars)]
+    missing_vars <- setdiff(formula_vars, colnames(sdata))
+    if (length(missing_vars) > 0) {
+      add_log(10, paste("ERROR: Variables not found in metadata:", paste(missing_vars, collapse = ", ")), "error")
+      add_log(10, paste("Available metadata columns:", paste(colnames(sdata), collapse = ", ")), "info")
+      showNotification(paste("Variables not in metadata:", paste(missing_vars, collapse = ", ")), type = "error", duration = 10)
+      return()
+    }
+
+    add_log(10, paste("Running PERMANOVA with formula:", formula_text, "..."))
 
     tryCatch({
       ps_active <- get_active_ps()
@@ -3424,7 +3981,7 @@ server <- function(input, output, session) {
       formula_str <- as.formula(paste("dist_mat ~", formula_text))
       perm_result <- adonis2(formula_str, data = sdata, permutations = n_perm)
       rv$permanova_result <- perm_result
-      add_log(9, paste("PERMANOVA complete. p-value:", round(perm_result$`Pr(>F)`[1], 3)), "success")
+      add_log(10, paste("PERMANOVA complete. p-value:", round(perm_result$`Pr(>F)`[1], 3)), "success")
 
       # Run betadisper using the first variable in the formula
       first_var <- trimws(strsplit(formula_text, "\\+|\\*|:")[[1]][1])
@@ -3433,12 +3990,12 @@ server <- function(input, output, session) {
         bd <- betadisper(dist_mat, groups)
         bd_test <- permutest(bd, pairwise = TRUE, permutations = n_perm)
         rv$betadisper_result <- list(betadisper = bd, permutest = bd_test)
-        add_log(9, paste("Betadisper complete (on", first_var, "). p-value:", round(bd_test$tab$`Pr(>F)`[1], 3)), "success")
+        add_log(10, paste("Betadisper complete (on", first_var, "). p-value:", round(bd_test$tab$`Pr(>F)`[1], 3)), "success")
 
         # Pairwise PERMANOVA if >2 groups (using first variable only)
         group_levels <- levels(as.factor(groups))
         if (length(group_levels) > 2) {
-          add_log(9, "Running pairwise PERMANOVA...")
+          add_log(10, "Running pairwise PERMANOVA...")
           pairs <- combn(group_levels, 2, simplify = FALSE)
           pair_results <- lapply(pairs, function(pair) {
             idx <- groups %in% pair
@@ -3458,21 +4015,21 @@ server <- function(input, output, session) {
           pairwise_df <- do.call(rbind, pair_results)
           pairwise_df$p_adjusted <- round(p.adjust(pairwise_df$p_value, method = "bonferroni"), 3)
           rv$pairwise_result <- pairwise_df
-          add_log(9, paste("Pairwise PERMANOVA complete.", nrow(pairwise_df), "comparisons."), "success")
+          add_log(10, paste("Pairwise PERMANOVA complete.", nrow(pairwise_df), "comparisons."), "success")
         } else {
           rv$pairwise_result <- NULL
-          add_log(9, "Only 2 groups - pairwise PERMANOVA not needed.", "info")
+          add_log(10, "Only 2 groups - pairwise PERMANOVA not needed.", "info")
         }
       } else {
-        add_log(9, paste("Variable", first_var, "not found in metadata. Betadisper skipped."), "warn")
+        add_log(10, paste("Variable", first_var, "not found in metadata. Betadisper skipped."), "warn")
         rv$betadisper_result <- NULL
         rv$pairwise_result <- NULL
       }
 
-      rv$completed_steps <- union(rv$completed_steps, 9)
+      rv$completed_steps <- union(rv$completed_steps, 10)
       auto_save_session()
     }, error = function(e) {
-      add_log(9, paste("PERMANOVA error:", e$message), "error")
+      add_log(10, paste("PERMANOVA error:", e$message), "error")
     })
   })
 
@@ -3609,8 +4166,9 @@ server <- function(input, output, session) {
     }
   )
 
+
   # =====================================================================
-  # STEP 10: ANCOM-BC2
+  # STEP 11: ANCOM-BC2
   # =====================================================================
 
   # Command preview
@@ -3652,15 +4210,47 @@ server <- function(input, output, session) {
     tax <- input$ancom_tax_level
 
     if (!nzchar(fix_f)) {
-      add_log(10, "Please enter a fixed effects formula.", "error")
+      add_log(11, "Please enter a fixed effects formula.", "error")
+      return()
+    }
+
+    # Validate formula variables against metadata columns
+    meta_cols <- colnames(sample_data(rv$ps))
+    # Extract variable names from formula (split on +, *, :, |, (, ), whitespace)
+    fix_vars <- unique(trimws(unlist(strsplit(fix_f, "[+*:()| ]+"))))
+    fix_vars <- fix_vars[nzchar(fix_vars) & fix_vars != "1"]  # remove empty and intercept
+    missing_vars <- setdiff(fix_vars, meta_cols)
+    if (length(missing_vars) > 0) {
+      add_log(11, paste("ERROR: Variables not found in metadata:", paste(missing_vars, collapse = ", ")), "error")
+      add_log(11, paste("Available metadata columns:", paste(meta_cols, collapse = ", ")), "info")
+      showNotification(paste("Variables not in metadata:", paste(missing_vars, collapse = ", ")), type = "error", duration = 10)
+      return()
+    }
+
+    # Also validate group variable
+    if (!grp %in% meta_cols) {
+      add_log(11, paste("ERROR: Group variable", grp, "not found in metadata."), "error")
+      showNotification(paste("Group variable", grp, "not in metadata"), type = "error")
       return()
     }
 
     rand_formula <- if (nzchar(rand_f)) rand_f else NULL
 
-    add_log(10, paste("Running ANCOM-BC2 at", tax, "level with fix_formula:", fix_f,
+    # Validate random effects formula variables too
+    if (!is.null(rand_formula)) {
+      rand_vars <- unique(trimws(unlist(strsplit(rand_f, "[+*:()| ]+"))))
+      rand_vars <- rand_vars[nzchar(rand_vars) & rand_vars != "1"]
+      missing_rand <- setdiff(rand_vars, meta_cols)
+      if (length(missing_rand) > 0) {
+        add_log(11, paste("ERROR: Random effects variables not found in metadata:", paste(missing_rand, collapse = ", ")), "error")
+        showNotification(paste("Random effects variables not in metadata:", paste(missing_rand, collapse = ", ")), type = "error")
+        return()
+      }
+    }
+
+    add_log(11, paste("Running ANCOM-BC2 at", tax, "level with fix_formula:", fix_f,
                       if (!is.null(rand_formula)) paste("| rand_formula:", rand_formula) else ""))
-    set_progress(10, 0, "Launching ANCOM-BC2 (this may take several minutes)...", "running")
+    set_progress(11, 0, "Launching ANCOM-BC2 (this may take several minutes)...", "running")
     shinyjs::disable("btn_ancombc2")
 
     rv$bg_ancom_start <- Sys.time()
@@ -3673,6 +4263,20 @@ server <- function(input, output, session) {
                mdfdr_method, mdfdr_B) {
         library(ANCOMBC)
         library(phyloseq)
+
+        # Verify tax_level exists in taxonomy table
+        tax_ranks <- rank_names(ps)
+        if (!(tax_level %in% tax_ranks)) {
+          # Try case-insensitive match
+          match_idx <- which(tolower(tax_ranks) == tolower(tax_level))
+          if (length(match_idx) > 0) {
+            tax_level <- tax_ranks[match_idx[1]]
+          } else {
+            # Use the lowest available rank
+            tax_level <- tail(tax_ranks, 1)
+          }
+        }
+
         ancombc2(data = ps, tax_level = tax_level,
                  fix_formula = fix_formula,
                  rand_formula = rand_formula,
@@ -3726,20 +4330,30 @@ server <- function(input, output, session) {
     if (rv$bg_ancom$is_alive()) {
       elapsed <- as.numeric(difftime(Sys.time(), rv$bg_ancom_start, units = "secs"))
       elapsed_txt <- if (elapsed > 60) paste0(round(elapsed/60, 1), " min") else paste0(round(elapsed), "s")
-      set_progress(10, 0, paste0("ANCOM-BC2 running... (", elapsed_txt, " elapsed)"), "running")
+      set_progress(11, 0, paste0("ANCOM-BC2 running... (", elapsed_txt, " elapsed)"), "running")
       invalidateLater(2000)
     } else {
       tryCatch({
         result <- rv$bg_ancom$get_result()
         rv$ancom_result <- result
         n_global <- if (!is.null(result$res_global)) sum(result$res_global$diff_abn, na.rm = TRUE) else 0
-        add_log(10, paste("ANCOM-BC2 complete.", n_global, "globally differentially abundant taxa detected."), "success")
-        set_progress(10, 100, "ANCOM-BC2 complete", "done")
-        rv$completed_steps <- union(rv$completed_steps, 10)
+        add_log(11, paste("ANCOM-BC2 complete.", n_global, "globally differentially abundant taxa detected."), "success")
+        showNotification(paste("ANCOM-BC2 complete.", n_global, "DA taxa detected."), type = "message")
+        set_progress(11, 100, "ANCOM-BC2 complete", "done")
+        rv$completed_steps <- union(rv$completed_steps, 11)
         auto_save_session()
       }, error = function(e) {
-        add_log(10, paste("ANCOM-BC2 error:", e$message), "error")
-        set_progress(10, 0, paste("Error:", e$message), "error")
+        err_msg <- e$message
+        # Try to extract the actual error from the subprocess
+        tryCatch({
+          err_detail <- rv$bg_ancom$read_all_error_lines()
+          if (length(err_detail) > 0) {
+            err_msg <- paste(tail(err_detail, 5), collapse = "\n")
+          }
+        }, error = function(e2) NULL)
+        add_log(11, paste("ANCOM-BC2 error:", err_msg), "error")
+        showNotification(paste("ANCOM-BC2 error:", err_msg), type = "error", duration = 15)
+        set_progress(11, 0, "Error - see log", "error")
       })
       shinyjs::enable("btn_ancombc2")
       rv$bg_ancom <- NULL
