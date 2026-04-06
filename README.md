@@ -17,88 +17,7 @@ Both applications take raw paired-end Illumina FASTQ files as input and produce 
 
 ---
 
-## Features
-
-### Shared Features (Both Apps)
-
-- **Guided step-by-step workflow** with real-time progress monitoring
-- **Asynchronous processing** — computationally intensive steps run in background subprocesses, keeping the interface responsive
-- **Session persistence** — automatically saves progress; resume analyses across sessions
-- **Auto-detection** of forward/reverse read file patterns
-- **Configurable sample name extraction** with live preview
-- **Interactive quality profile visualization** with downloadable plots
-- **Full DADA2 filtering parameters** exposed with sensible defaults
-- **Background error learning, dereplication, and chimera removal**
-- **Read tracking table and plot** showing retention at each pipeline step
-- **Phyloseq integration** with metadata upload (CSV/TSV) and variable type selection
-- **Data transformation** — rarefaction (configurable depth), relative abundance, or CLR (Centered Log-Ratio)
-- **Interactive visualizations:**
-  - Rarefaction curves (colored by group)
-  - Alpha diversity boxplots (Observed, Shannon, Simpson)
-  - NMDS ordination with 95% confidence ellipses
-  - PCoA ordination with variance-explained axes
-  - Taxonomic abundance bar plots (top N taxa at any rank)
-- **PERMANOVA** — free-text formula input, betadisper homogeneity test, pairwise comparisons with Bonferroni correction, command preview, CSV downloads
-- **ANCOM-BC2** — differential abundance analysis with fixed/random effects formulas, collapsible advanced settings panel (all parameters), global test, pairwise directional test, volcano plot, heatmap, async execution, CSV/PNG downloads
-- **Publication-ready figure export** at 300 DPI (PNG)
-- **Dark-themed modern interface** (Outfit + JetBrains Mono fonts)
-
-### 16S-Specific Features
-
-- **SILVA database** (v138.1) auto-download for taxonomy assignment
-- **Naive Bayesian classifier** or **IdTaxa** (DECIPHER) for taxonomy
-- **Species-level assignment** via exact sequence matching
-- **Fixed-length truncation** (truncLen) for quality filtering
-
-### ITS-Specific Features
-
-- **Primer removal** using [cutadapt](https://cutadapt.readthedocs.io/) with:
-  - Support for multiple forward/reverse primers (unequal counts allowed)
-  - Automatic N-prefiltering
-  - Primer orientation hit count table for verification
-  - Automatic cutadapt detection or installation via pip
-- **No fixed-length truncation** (biological length variation preserved)
-- **Minimum length filtering** (default 50 bp) to remove spurious sequences
-- **UNITE database** for fungal taxonomy assignment
-
----
-
-## Workflow
-
-### 16S rRNA Pipeline (10 Steps)
-
-| Step | Name | Description |
-|------|------|-------------|
-| 1 | Setup & Files | Path input, file detection, sample name extraction |
-| 2 | Quality Profiles | Visualize per-position quality scores |
-| 3 | Filter & Trim | Quality filtering with configurable parameters |
-| 4 | Dereplication | Error learning and sequence dereplication |
-| 5 | Merge & Chimeras | Paired-read merging and chimera removal |
-| 6 | Taxonomy | SILVA-based taxonomy assignment |
-| 7 | Phyloseq | Object construction, metadata, transformation |
-| 8 | Figures | Rarefaction, alpha/beta diversity, abundance plots |
-| 9 | PERMANOVA | Multivariate community composition testing |
-| 10 | ANCOM-BC2 | Differential abundance analysis |
-
-### ITS Pipeline (11 Steps)
-
-| Step | Name | Description |
-|------|------|-------------|
-| 1 | Setup & Files | Path input, file detection, sample name extraction |
-| 2 | Quality Profiles | Visualize per-position quality scores |
-| 3 | Primer Removal | Cutadapt-based primer trimming with verification |
-| 4 | Filter & Trim | Quality filtering (no truncation, minLen = 50) |
-| 5 | Dereplication | Error learning and sequence dereplication |
-| 6 | Merge & Chimeras | Paired-read merging and chimera removal |
-| 7 | Taxonomy | UNITE-based fungal taxonomy assignment |
-| 8 | Phyloseq | Object construction, metadata, transformation |
-| 9 | Figures | Rarefaction, alpha/beta diversity, abundance plots |
-| 10 | PERMANOVA | Multivariate community composition testing |
-| 11 | ANCOM-BC2 | Differential abundance analysis |
-
----
-
-## Installation
+### Installation
 
 ### Prerequisites
 
@@ -189,34 +108,130 @@ All pipeline state is saved automatically to your data directory after each step
 
 ---
 
+# Features
+
+### Shared Features (Both Apps)
+
+- **Guided step-by-step workflow** with real-time progress monitoring
+- **Asynchronous processing** — computationally intensive steps run in background subprocesses, keeping the interface responsive
+- **Session persistence** — automatically saves progress; resume analyses across sessions
+- **Auto-detection** of forward/reverse read file patterns
+- **Configurable sample name extraction** with live preview
+- **Interactive quality profile visualization** with downloadable plots
+- **Full DADA2 filtering parameters** exposed with sensible defaults
+- **Background error learning, dereplication, and chimera removal**
+- **Read tracking table and plot** showing retention at each pipeline step
+- **Phyloseq integration** with metadata upload (CSV/TSV) and variable type selection
+- **Data transformation** — rarefaction (configurable depth), relative abundance, or CLR (Centered Log-Ratio)
+- **Interactive visualizations:**
+  - Rarefaction curves (colored by group)
+  - Alpha diversity boxplots (Observed, Shannon, Simpson)
+  - NMDS ordination with 95% confidence ellipses
+  - PCoA ordination with variance-explained axes
+  - Taxonomic abundance bar plots (top N taxa at any rank)
+- **PERMANOVA** — free-text formula input, betadisper homogeneity test, pairwise comparisons with Bonferroni correction, command preview, CSV downloads
+- **ANCOM-BC2** — differential abundance analysis with fixed/random effects formulas, collapsible advanced settings panel (all parameters), global test, pairwise directional test, volcano plot, heatmap, async execution, CSV/PNG downloads
+- **Publication-ready figure export** at 300 DPI (PNG)
+- **Dark-themed modern interface** (Outfit + JetBrains Mono fonts)
+
+### 16S-Specific Features
+
+- **SILVA database** (v138.1) auto-download for taxonomy assignment
+- **Naive Bayesian classifier** or **IdTaxa** (DECIPHER) for taxonomy
+- **Species-level assignment** via exact sequence matching
+- **Fixed-length truncation** (truncLen) for quality filtering
+
+### ITS-Specific Features
+
+- **Primer removal** using [cutadapt](https://cutadapt.readthedocs.io/) with:
+  - Support for multiple forward/reverse primers (unequal counts allowed)
+  - Automatic N-prefiltering
+  - Primer orientation hit count table for verification
+  - Automatic cutadapt detection or installation via pip
+- **No fixed-length truncation** (biological length variation preserved)
+- **Minimum length filtering** (default 50 bp) to remove spurious sequences
+- **UNITE database** for fungal taxonomy assignment
+
+---
+
+## Workflow
+
+### 16S rRNA Pipeline (10 Steps)
+
+| Step | Name | Description |
+|------|------|-------------|
+| 1 | Setup & Files | Path input, file detection, sample name extraction |
+| 2 | Quality Profiles | Visualize per-position quality scores |
+| 3 | Filter & Trim | Quality filtering with configurable parameters |
+| 4 | Dereplication | Error learning and sequence dereplication |
+| 5 | Merge & Chimeras | Paired-read merging and chimera removal |
+| 6 | Taxonomy | SILVA-based taxonomy assignment |
+| 7 | Phyloseq | Object construction, metadata, transformation |
+| 8 | Figures | Rarefaction, alpha/beta diversity, abundance plots |
+| 9 | PERMANOVA | Multivariate community composition testing |
+| 10 | ANCOM-BC2 | Differential abundance analysis |
+
+### ITS Pipeline (11 Steps)
+
+| Step | Name | Description |
+|------|------|-------------|
+| 1 | Setup & Files | Path input, file detection, sample name extraction |
+| 2 | Quality Profiles | Visualize per-position quality scores |
+| 3 | Primer Removal | Cutadapt-based primer trimming with verification |
+| 4 | Filter & Trim | Quality filtering (no truncation, minLen = 50) |
+| 5 | Dereplication | Error learning and sequence dereplication |
+| 6 | Merge & Chimeras | Paired-read merging and chimera removal |
+| 7 | Taxonomy | UNITE-based fungal taxonomy assignment |
+| 8 | Phyloseq | Object construction, metadata, transformation |
+| 9 | Figures | Rarefaction, alpha/beta diversity, abundance plots |
+| 10 | PERMANOVA | Multivariate community composition testing |
+| 11 | ANCOM-BC2 | Differential abundance analysis |
+
+---
+
 ## Screenshots
 
 ### Setup & File Detection
-![Setup Screenshot](screenshots/01_setup.png)
+![Setup Screenshot](images/16S/01_setup_and_files.png)
 
 ### Quality Profiles
-![Quality Profiles Screenshot](screenshots/02_quality.png)
+![Quality Profiles Screenshot](images/16S/02_quality_plots_forward_reads.png)
 
 ### Primer Removal (ITS only)
 ![Primer Removal Screenshot](screenshots/03_primers.png)
 
 ### Filter & Trim
-![Filter Screenshot](screenshots/04_filter.png)
+![Filter Screenshot](images/16S/03_filter_and_trim.png)
+
+### DADA2 Error Learning & Dereplication
+![Error Learning & Derep Screenshot](images/16S/04_DADA2_error_learning_algorithm_and_Dereplication.png)
+
+### Merge Reads & Remove Chimeras
+![Merge Reads & Remove Chimeras](images/16S/05_merge_reads_and_remove_chimeras.png)
+
+### Read tracking table
+![Read tracking screenshot](images/16S/05_read_tracking.png)
+
+### Assign taxonomy
+![Assign taxonomy screenshot](images/16S/06_assign_taxonomy.png)
 
 ### Phyloseq & Data Transformation
-![Phyloseq Screenshot](screenshots/07_phyloseq.png)
+![Phyloseq Screenshot](images/16S/07_build_phyloseq_object.png)
+
+### Rarefaction curve
+![Rarefaction curve screenshot](images/16S/08_rarefaction_curve.png)
 
 ### Alpha Diversity
-![Alpha Diversity Screenshot](screenshots/08_alpha.png)
+![Alpha Diversity Screenshot](images/16S/08_alpha_div_figure.png)
 
 ### Ordination (PCoA)
-![PCoA Screenshot](screenshots/08_pcoa.png)
+![PCoA Screenshot](images/16S/08_ordination_PCOA_plot.png)
 
 ### PERMANOVA
-![PERMANOVA Screenshot](screenshots/09_permanova.png)
+![PERMANOVA Screenshot](images/16S/09_PERMANOVA.png)
 
 ### ANCOM-BC2
-![ANCOM-BC2 Screenshot](screenshots/10_ancombc2.png)
+![ANCOM-BC2 Screenshot](images/16S/10_ANCOM-BC2.png)
 
 ---
 
