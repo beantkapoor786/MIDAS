@@ -13,7 +13,7 @@ shinyDADA2 provides complete, code-free graphical interfaces for amplicon sequen
 
 Both applications take raw paired-end Illumina FASTQ files as input and produce publication-ready figures, statistical test results, and downloadable data tables — all without writing a single line of code.
 
-![App Screenshot Placeholder](screenshots/app_overview.png)
+![App start up window](images/16S/00_start_up_new_analysis_or_resume.png)
 
 ---
 
