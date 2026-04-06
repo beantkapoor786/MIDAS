@@ -15,6 +15,8 @@ Both applications take raw paired-end Illumina FASTQ files as input and produce 
 
 ![App start up window](images/16S/00_start_up_new_analysis_or_resume.png)
 
+Please see below for more screenshots.
+
 ---
 
 ### Installation
