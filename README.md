@@ -1,4 +1,4 @@
-# shinyDADA2
+# MIDAS 
 
 **Interactive R/Shiny applications for 16S rRNA and ITS amplicon sequence analysis**
 
@@ -6,7 +6,7 @@
 [![R](https://img.shields.io/badge/R-%3E%3D4.0-blue.svg)](https://www.r-project.org/)
 [![Shiny](https://img.shields.io/badge/Shiny-1.8%2B-blue.svg)](https://shiny.posit.co/)
 
-shinyDADA2 provides complete, code-free graphical interfaces for amplicon sequence analysis using the [DADA2](https://benjjneb.github.io/dada2/) pipeline. Two separate applications cover the most widely used marker genes in microbial ecology:
+MIDAS provides complete, code-free graphical interfaces for amplicon sequence analysis using the [DADA2](https://benjjneb.github.io/dada2/) pipeline. Two separate applications cover the most widely used marker genes in microbial ecology:
 
 - **16S rRNA app** (`dada2-16s-gui.R`) — for bacterial and archaeal community profiling (10-step workflow)
 - **ITS app** (`dada2-ITS-gui.R`) — for fungal community profiling (11-step workflow)
@@ -32,8 +32,8 @@ Please see below for more screenshots.
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/beantkapoor786/16S-ITS-GUI.git
-cd 16S-ITS-GUI
+git clone https://github.com/beantkapoor786/MIDAS.git
+cd MIDAS 
 ```
 
 2. Launch the 16S app:
@@ -281,9 +281,9 @@ Both apps share a common architecture:
 
 ## Citation
 
-If you use shinyDADA2 in your research, please cite:
+If you use MIDAS in your research, please cite:
 
-> [Authors]. shinyDADA2: R/Shiny applications for interactive amplicon sequence analysis of 16S rRNA and ITS markers. [Journal], [Year]. DOI: [DOI]
+> [Authors]. MIDAS: an interactive R/Shiny platform for end-to-end 16S rRNA and ITS amplicon sequence analysis using DADA2 [Journal], [Year]. DOI: [DOI]
 
 Please also cite the underlying tools:
 
