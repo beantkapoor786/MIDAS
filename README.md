@@ -42,11 +42,16 @@ cd MIDAS
 shiny::runApp("MIDAS_16S.R")
 ```
 
+If you recieve an error related to file opening, please double check that `MIDAS_16S.R` exists in your current working directory in R/Rstudio.
+
 Or launch the ITS app:
 
 ```r
 shiny::runApp("MIDAS_ITS.R")
 ```
+
+If you receive an error related to file opening, please double check that `MIDAS_ITS.R` exists in your current working directory in R/Rstudio.
+
 
 3. On first launch, all required R packages will be installed automatically. This may take several minutes.
 
