@@ -1148,10 +1148,17 @@ ui <- fluidPage(
           "Merge Paired Reads & Remove Chimeras"
         ),
         div(class = "card-description",
-          "Merge denoised forward and reverse reads, construct the ASV table, and remove chimeric sequences."
+          "Merge denoised forward and reverse reads, construct the ASV table, and remove chimeric sequences. Merged sequences are only output if the forward and reverse reads overlap by at least minOverlap bases and are identical in the overlap region (up to maxMismatch mismatches allowed)."
         ),
-        actionButton("btn_merge", "Merge & Remove Chimeras", class = "btn-primary",
-                     icon = icon("code-merge")),
+        div(class = "grid-2",
+          numericInput("merge_minOverlap", "Minimum Overlap (bp)", value = 12, min = 1, max = 100, step = 1),
+          numericInput("merge_maxMismatch", "Maximum Mismatches in Overlap", value = 0, min = 0, max = 20, step = 1)
+        ),
+        uiOutput("merge_cmd_preview"),
+        div(style = "margin-top: 12px;",
+          actionButton("btn_merge", "Merge & Remove Chimeras", class = "btn-primary",
+                       icon = icon("code-merge"))
+        ),
         uiOutput("progress_step5")
       ),
 
@@ -1669,6 +1676,21 @@ server <- function(input, output, session) {
   # ── Helper: update step progress ──
   set_progress <- function(step, pct, label, status = "running") {
     rv[[paste0("prog", step)]] <- list(pct = pct, label = label, status = status)
+  }
+
+  # ── Helper: dark ggplot theme ──
+  theme_dark_app <- function(base_size = 14) {
+    theme_minimal(base_size = base_size) %+replace%
+      theme(
+        plot.background = element_rect(fill = "#1a2332", color = NA),
+        panel.background = element_rect(fill = "#1a2332", color = NA),
+        legend.background = element_rect(fill = "#1a2332", color = NA),
+        legend.key = element_rect(fill = "#1a2332", color = NA),
+        text = element_text(color = "#e8ecf4"),
+        axis.text = element_text(color = "#8899b0"),
+        panel.grid.major = element_line(color = "#2a3a52"),
+        panel.grid.minor = element_blank()
+      )
   }
 
   # ── Helper: render progress bar UI ──
@@ -2547,6 +2569,26 @@ server <- function(input, output, session) {
   # STEP 5: Merge & Chimera Removal
   # ═══════════════════════════════════════════════════════════════════════
 
+  # Command preview
+  output$merge_cmd_preview <- renderUI({
+    minOv <- input$merge_minOverlap
+    maxMm <- input$merge_maxMismatch
+    if (is.null(minOv) || is.null(maxMm)) return(NULL)
+
+    cmd1 <- paste0("mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, minOverlap = ", minOv,
+                   ", maxMismatch = ", maxMm, ", verbose = TRUE)")
+    cmd2 <- "seqtab <- makeSequenceTable(mergers)"
+    cmd3 <- "seqtab.nochim <- removeBimeraDenovo(seqtab, method = \"consensus\", multithread = TRUE)"
+
+    div(class = "log-panel", style = "margin-top: 12px; max-height: none; padding: 14px;",
+      div(style = "font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;",
+        "Command Preview"),
+      div(class = "log-info", style = "margin-bottom: 4px;", cmd1),
+      div(class = "log-info", style = "margin-bottom: 4px;", cmd2),
+      div(class = "log-info", cmd3)
+    )
+  })
+
   observeEvent(input$btn_merge, {
     req(rv$dadaFs, rv$dadaRs, rv$filtFs, rv$filtRs)
     add_log(5, "Merging paired reads...")
@@ -2555,9 +2597,14 @@ server <- function(input, output, session) {
     rv$bg_merge_start <- Sys.time()
     rv$merge_stage <- 1  # 1=merge+seqtab, 2=chimera removal
 
+    minOv <- input$merge_minOverlap
+    maxMm <- input$merge_maxMismatch
+    add_log(5, paste("Parameters: minOverlap =", minOv, ", maxMismatch =", maxMm), "info")
+
     # Stage 1: merge + build seqtab (fast, in-process)
     tryCatch({
-      mergers <- mergePairs(rv$dadaFs, rv$filtFs, rv$dadaRs, rv$filtRs, verbose = FALSE)
+      mergers <- mergePairs(rv$dadaFs, rv$filtFs, rv$dadaRs, rv$filtRs,
+                            minOverlap = minOv, maxMismatch = maxMm, verbose = FALSE)
       rv$mergers <- mergers
       add_log(5, "Paired reads merged.", "success")
 
@@ -3229,7 +3276,7 @@ server <- function(input, output, session) {
 
   output$bar_plot <- renderPlot({
     req(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
-    make_bar_plot(get_active_ps(), input$bar_x, input$bar_fill, input$bar_top_n)
+    make_bar_plot(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
   })
 
   # ── PCoA Ordination Plot ──
@@ -3290,14 +3337,6 @@ server <- function(input, output, session) {
     content = function(file) {
       req(rv$taxa)
       write.csv(rv$taxa, file)
-    }
-  )
-
-  output$dl_track <- downloadHandler(
-    filename = function() paste0("Read_tracking_", Sys.Date(), ".csv"),
-    content = function(file) {
-      req(rv$track)
-      write.csv(rv$track, file)
     }
   )
 
@@ -3397,7 +3436,7 @@ server <- function(input, output, session) {
     filename = function() paste0("Abundance_Plot_", Sys.Date(), ".png"),
     content = function(file) {
       req(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
-      p <- make_bar_plot(get_active_ps(), input$bar_x, input$bar_fill, input$bar_top_n)
+      p <- make_bar_plot(rv$ps, input$bar_x, input$bar_fill, input$bar_top_n)
       ggsave(file, plot = p, width = 12, height = 8, dpi = 300, bg = "#1a2332")
     }
   )

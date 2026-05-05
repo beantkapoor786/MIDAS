@@ -1196,10 +1196,17 @@ ui <- fluidPage(
           "Merge Paired Reads & Remove Chimeras"
         ),
         div(class = "card-description",
-          "Merge denoised forward and reverse reads, construct the ASV table, and remove chimeric sequences."
+          "Merge denoised forward and reverse reads, construct the ASV table, and remove chimeric sequences. Merged sequences are only output if the forward and reverse reads overlap by at least minOverlap bases and are identical in the overlap region (up to maxMismatch mismatches allowed)."
         ),
-        actionButton("btn_merge", "Merge & Remove Chimeras", class = "btn-primary",
-                     icon = icon("code-merge")),
+        div(class = "grid-2",
+          numericInput("merge_minOverlap", "Minimum Overlap (bp)", value = 12, min = 1, max = 100, step = 1),
+          numericInput("merge_maxMismatch", "Maximum Mismatches in Overlap", value = 0, min = 0, max = 20, step = 1)
+        ),
+        uiOutput("merge_cmd_preview"),
+        div(style = "margin-top: 12px;",
+          actionButton("btn_merge", "Merge & Remove Chimeras", class = "btn-primary",
+                       icon = icon("code-merge"))
+        ),
         uiOutput("progress_step6")
       ),
 
@@ -1575,7 +1582,7 @@ ui <- fluidPage(
               checkboxInput("ancom_pairwise", "Pairwise Directional Test", value = TRUE)
             ),
             div(class = "grid-2",
-              checkboxInput("ancom_dunnet", "Dunnett's Type Test", value = FALSE),
+              checkboxInput("ancom_dunnet", "Dunnett's Type Test", value = TRUE),
               checkboxInput("ancom_trend", "Trend Test", value = FALSE)
             ),
             div(class = "card-description", style = "font-weight: 500; color: var(--text-primary); margin-top: 8px; margin-bottom: 8px;",
@@ -1607,11 +1614,25 @@ ui <- fluidPage(
 
       div(class = "card",
         div(class = "card-header",
-          div(class = "icon blue", icon("globe")),
-          "Global Test"
+          div(class = "icon cyan", icon("chart-bar")),
+          "ANCOM-BC2 Primary Analysis"
         ),
         div(class = "card-description",
-          "Tests whether each taxon is differentially abundant across any of the groups."
+          "The primary analysis (output$res) provides per-taxon results for each covariate in the model. For each taxon and covariate, it reports: log fold change (lfc), standard error (se), test statistic (W), p-value, adjusted p-value (q_val), whether the taxon is differentially abundant (diff_abn), and whether it passed sensitivity analysis (passed_ss). A positive lfc means the taxon is more abundant as the covariate increases (continuous) or in the test group vs reference (categorical)."
+        ),
+        DTOutput("ancom_primary_dt") %>% withSpinner(type = 6, color = "#3b82f6"),
+        div(style = "margin-top: 12px;",
+          downloadButton("dl_ancom_primary", "Download Primary Results (CSV)", class = "btn-download")
+        )
+      ),
+
+      div(class = "card",
+        div(class = "card-header",
+          div(class = "icon blue", icon("globe")),
+          "ANCOM-BC2 Global Test"
+        ),
+        div(class = "card-description",
+          "The global test determines whether each taxon is differentially abundant across any of the groups defined by the group variable. It tests the null hypothesis that the taxon's absolute abundance is the same across all groups. The output includes a test statistic (W), p-value, adjusted p-value (q_val), and a TRUE/FALSE indicator (diff_abn). A significant result (diff_abn = TRUE) means the taxon differs across at least one pair of groups, but does not identify which specific pair differs. Use the pairwise comparisons to determine specific group differences."
         ),
         DTOutput("ancom_global_dt") %>% withSpinner(type = 6, color = "#3b82f6"),
         div(style = "margin-top: 12px;",
@@ -1621,11 +1642,11 @@ ui <- fluidPage(
 
       div(class = "card",
         div(class = "card-header",
-          div(class = "icon cyan", icon("exchange-alt")),
-          "Pairwise Directional Test"
+          div(class = "icon violet", icon("exchange-alt")),
+          "ANCOM-BC2 Multiple Pairwise Comparisons"
         ),
         div(class = "card-description",
-          "Identifies which taxa are differentially abundant between each pair of groups, with direction of change."
+          "The pairwise directional test identifies taxa that are differentially abundant between each specific pair of groups while controlling the mixed directional false discovery rate (mdFDR). The mdFDR accounts for three sources of error: (1) multiple testing across taxa, (2) multiple pairwise comparisons between groups, and (3) directional classification within each comparison (whether abundance increased or decreased). For each taxon and each pair of groups, the output reports log fold change (lfc), standard error (se), test statistic (W), p-value, adjusted p-value (q_val), whether the taxon is differentially abundant (diff_abn), and whether it passed the sensitivity analysis for pseudo-count addition (passed_ss)."
         ),
         DTOutput("ancom_pairwise_dt") %>% withSpinner(type = 6, color = "#3b82f6"),
         div(style = "margin-top: 12px;",
@@ -1635,30 +1656,15 @@ ui <- fluidPage(
 
       div(class = "card",
         div(class = "card-header",
-          div(class = "icon amber", icon("chart-area")),
-          "Volcano Plot"
+          div(class = "icon amber", icon("layer-group")),
+          "ANCOM-BC2 Dunnett's Type of Test"
         ),
         div(class = "card-description",
-          "Log fold-change vs -log10(adjusted p-value). Taxa above the significance threshold are colored."
+          "Dunnett's type of test compares each treatment group against a single reference group, rather than testing all possible pairs. This is appropriate when the study has a clear control or baseline group and the goal is to identify taxa that differ from that reference. Like the pairwise test, it controls the mixed directional false discovery rate (mdFDR). The output reports log fold change (lfc), standard error (se), test statistic (W), p-value, adjusted p-value (q_val), whether the taxon is differentially abundant (diff_abn), and whether it passed the sensitivity analysis (passed_ss) for each comparison against the reference."
         ),
-        uiOutput("ancom_volcano_selector"),
-        plotOutput("ancom_volcano_plot", height = "500px") %>% withSpinner(type = 6, color = "#3b82f6"),
+        DTOutput("ancom_dunnet_dt") %>% withSpinner(type = 6, color = "#3b82f6"),
         div(style = "margin-top: 12px;",
-          downloadButton("dl_ancom_volcano", "Download Volcano Plot (PNG)", class = "btn-download")
-        )
-      ),
-
-      div(class = "card",
-        div(class = "card-header",
-          div(class = "icon violet", icon("th")),
-          "Differential Abundance Heatmap"
-        ),
-        div(class = "card-description",
-          "Heatmap of log fold-changes for significantly differentially abundant taxa across comparisons."
-        ),
-        plotOutput("ancom_heatmap", height = "600px") %>% withSpinner(type = 6, color = "#3b82f6"),
-        div(style = "margin-top: 12px;",
-          downloadButton("dl_ancom_heatmap", "Download Heatmap (PNG)", class = "btn-download")
+          downloadButton("dl_ancom_dunnet", "Download Dunnett's Test (CSV)", class = "btn-download")
         )
       ),
 
@@ -2903,6 +2909,26 @@ server <- function(input, output, session) {
   # STEP 6: Merge & Chimera Removal
   # ═══════════════════════════════════════════════════════════════════════
 
+  # Command preview
+  output$merge_cmd_preview <- renderUI({
+    minOv <- input$merge_minOverlap
+    maxMm <- input$merge_maxMismatch
+    if (is.null(minOv) || is.null(maxMm)) return(NULL)
+
+    cmd1 <- paste0("mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, minOverlap = ", minOv,
+                   ", maxMismatch = ", maxMm, ", verbose = TRUE)")
+    cmd2 <- "seqtab <- makeSequenceTable(mergers)"
+    cmd3 <- "seqtab.nochim <- removeBimeraDenovo(seqtab, method = \"consensus\", multithread = TRUE)"
+
+    div(class = "log-panel", style = "margin-top: 12px; max-height: none; padding: 14px;",
+      div(style = "font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;",
+        "Command Preview"),
+      div(class = "log-info", style = "margin-bottom: 4px;", cmd1),
+      div(class = "log-info", style = "margin-bottom: 4px;", cmd2),
+      div(class = "log-info", cmd3)
+    )
+  })
+
   observeEvent(input$btn_merge, {
     req(rv$dadaFs, rv$dadaRs, rv$filtFs, rv$filtRs)
     add_log(6, "Merging paired reads...")
@@ -2911,9 +2937,14 @@ server <- function(input, output, session) {
     rv$bg_merge_start <- Sys.time()
     rv$merge_stage <- 1  # 1=merge+seqtab, 2=chimera removal
 
+    minOv <- input$merge_minOverlap
+    maxMm <- input$merge_maxMismatch
+    add_log(6, paste("Parameters: minOverlap =", minOv, ", maxMismatch =", maxMm), "info")
+
     # Stage 1: merge + build seqtab (fast, in-process)
     tryCatch({
-      mergers <- mergePairs(rv$dadaFs, rv$filtFs, rv$dadaRs, rv$filtRs, verbose = FALSE)
+      mergers <- mergePairs(rv$dadaFs, rv$filtFs, rv$dadaRs, rv$filtRs,
+                            minOverlap = minOv, maxMismatch = maxMm, verbose = FALSE)
       rv$mergers <- mergers
       add_log(6, "Paired reads merged.", "success")
 
@@ -4360,183 +4391,72 @@ server <- function(input, output, session) {
     }
   })
 
+  # ── Primary analysis table ──
+  output$ancom_primary_dt <- renderDT({
+    req(rv$ancom_result)
+    res <- rv$ancom_result$res
+    if (is.null(res) || nrow(res) == 0) return(NULL)
+    num_cols <- sapply(res, is.numeric)
+    res[num_cols] <- lapply(res[num_cols], round, 2)
+    datatable(res, options = list(pageLength = 15, scrollX = TRUE, dom = "frtip"),
+              rownames = FALSE, class = "compact",
+              caption = "ANCOM-BC2 Primary Analysis")
+  })
+
   # ── Global test table ──
   output$ancom_global_dt <- renderDT({
     req(rv$ancom_result)
     res <- rv$ancom_result$res_global
-    if (is.null(res) || nrow(res) == 0) {
-      # Fallback: show primary result summary
-      res <- rv$ancom_result$res
-      if (is.null(res) || nrow(res) == 0) return(NULL)
-    }
+    if (is.null(res) || nrow(res) == 0) return(NULL)
     num_cols <- sapply(res, is.numeric)
-    res[num_cols] <- lapply(res[num_cols], round, 3)
+    res[num_cols] <- lapply(res[num_cols], round, 2)
     datatable(res, options = list(pageLength = 15, scrollX = TRUE, dom = "frtip"),
-              rownames = FALSE, class = "compact")
+              rownames = FALSE, class = "compact",
+              caption = "ANCOM-BC2 Global Test")
   })
 
   # ── Pairwise directional test table ──
   output$ancom_pairwise_dt <- renderDT({
     req(rv$ancom_result)
     res <- rv$ancom_result$res_pair
-    if (is.null(res) || nrow(res) == 0) {
-      # Fallback: show primary result
-      res <- rv$ancom_result$res
-      if (is.null(res) || nrow(res) == 0) return(NULL)
-    }
+    if (is.null(res) || nrow(res) == 0) return(NULL)
     num_cols <- sapply(res, is.numeric)
-    res[num_cols] <- lapply(res[num_cols], round, 3)
+    res[num_cols] <- lapply(res[num_cols], round, 2)
     datatable(res, options = list(pageLength = 15, scrollX = TRUE, dom = "frtip"),
-              rownames = FALSE, class = "compact")
+              rownames = FALSE, class = "compact",
+              caption = "ANCOM-BC2 Multiple Pairwise Comparisons")
   })
 
-  # ── Volcano plot ──
-  output$ancom_volcano_selector <- renderUI({
+  # ── Dunnett's type of test table ──
+  output$ancom_dunnet_dt <- renderDT({
     req(rv$ancom_result)
-    # Try res_pair first, then fall back to res (primary)
-    res <- rv$ancom_result$res_pair
-    if (is.null(res) || nrow(res) == 0) res <- rv$ancom_result$res
-    if (is.null(res)) return(NULL)
-
-    # Find lfc columns
-    lfc_cols <- grep("^lfc_|^lfc\\.", colnames(res), value = TRUE)
-    if (length(lfc_cols) == 0) return(NULL)
-    comparisons <- gsub("^lfc_|^lfc\\.", "", lfc_cols)
-    selectInput("ancom_volcano_comp", "Select Comparison",
-                choices = comparisons, selected = comparisons[1])
-  })
-
-  make_volcano_plot <- function(result, comparison, alpha) {
-    # Try res_pair first, then res
-    res <- result$res_pair
-    if (is.null(res) || nrow(res) == 0) res <- result$res
-    if (is.null(res)) return(NULL)
-
-    # Try different column naming patterns
-    lfc_col <- NULL
-    p_col <- NULL
-    diff_col <- NULL
-    for (prefix in c("lfc_", "lfc.")) {
-      candidate <- paste0(prefix, comparison)
-      if (candidate %in% colnames(res)) { lfc_col <- candidate; break }
-    }
-    for (prefix in c("q_", "q.")) {
-      candidate <- paste0(prefix, comparison)
-      if (candidate %in% colnames(res)) { p_col <- candidate; break }
-    }
-    for (prefix in c("diff_", "diff.")) {
-      candidate <- paste0(prefix, comparison)
-      if (candidate %in% colnames(res)) { diff_col <- candidate; break }
-    }
-
-    if (is.null(lfc_col) || is.null(p_col)) return(NULL)
-
-    df <- data.frame(
-      taxon = res$taxon,
-      lfc = res[[lfc_col]],
-      qval = res[[p_col]],
-      stringsAsFactors = FALSE
-    )
-    if (!is.null(diff_col)) {
-      df$diff <- res[[diff_col]]
-    } else {
-      df$diff <- df$qval < alpha
-    }
-    df <- df[complete.cases(df), ]
-    df$neg_log10_q <- -log10(df$qval + 1e-300)
-    df$Significant <- ifelse(df$diff, "Yes", "No")
-
-    ggplot(df, aes(x = lfc, y = neg_log10_q, color = Significant)) +
-      geom_point(size = 2.5, alpha = 0.7) +
-      scale_color_manual(values = c("No" = "#5a6a80", "Yes" = "#f43f5e")) +
-      geom_hline(yintercept = -log10(alpha), linetype = "dashed", color = "#f59e0b", linewidth = 0.5) +
-      geom_vline(xintercept = 0, linetype = "dashed", color = "#8899b0", linewidth = 0.3) +
-      labs(title = paste("Volcano Plot -", comparison),
-           x = "Log Fold Change", y = "-log10(q-value)") +
-      theme_minimal(base_size = 14) +
-      theme(
-        plot.background = element_rect(fill = "#1a2332", color = NA),
-        panel.background = element_rect(fill = "#1a2332", color = NA),
-        legend.background = element_rect(fill = "#1a2332", color = NA),
-        legend.key = element_rect(fill = "#1a2332", color = NA),
-        text = element_text(color = "#e8ecf4"),
-        axis.text = element_text(color = "#8899b0"),
-        panel.grid.major = element_line(color = "#2a3a52"),
-        panel.grid.minor = element_blank(),
-        plot.title = element_text(size = 14, face = "bold")
-      )
-  }
-
-  output$ancom_volcano_plot <- renderPlot({
-    req(rv$ancom_result, input$ancom_volcano_comp)
-    make_volcano_plot(rv$ancom_result, input$ancom_volcano_comp, input$ancom_alpha)
-  })
-
-  # ── Heatmap of DA taxa ──
-  make_ancom_heatmap <- function(result) {
-    # Try res_pair first, then res
-    res <- result$res_pair
-    if (is.null(res) || nrow(res) == 0) res <- result$res
-    if (is.null(res)) return(NULL)
-
-    # Find all lfc and diff columns
-    lfc_cols <- grep("^lfc_|^lfc\\.", colnames(res), value = TRUE)
-    diff_cols <- grep("^diff_|^diff\\.", colnames(res), value = TRUE)
-
-    if (length(lfc_cols) == 0) return(NULL)
-
-    # Filter to only significant taxa (significant in at least one comparison)
-    sig_mask <- apply(res[diff_cols], 1, function(x) any(x, na.rm = TRUE))
-    if (sum(sig_mask) == 0) {
-      plot.new()
-      text(0.5, 0.5, "No differentially abundant taxa detected.", col = "#8899b0", cex = 1.4)
-      return()
-    }
-
-    res_sig <- res[sig_mask, ]
-    lfc_mat <- as.data.frame(res_sig[lfc_cols])
-    rownames(lfc_mat) <- res_sig$taxon
-    colnames(lfc_mat) <- gsub("^lfc_|^lfc\\.", "", colnames(lfc_mat))
-
-    # Reshape for ggplot
-    lfc_mat$taxon <- rownames(lfc_mat)
-    df_long <- tidyr::pivot_longer(lfc_mat, cols = -taxon, names_to = "Comparison", values_to = "LFC")
-    df_long <- df_long[complete.cases(df_long), ]
-
-    ggplot(df_long, aes(x = Comparison, y = taxon, fill = LFC)) +
-      geom_tile(color = "#2a3a52", linewidth = 0.3) +
-      scale_fill_gradient2(low = "#3b82f6", mid = "#1a2332", high = "#f43f5e", midpoint = 0,
-                           name = "Log FC") +
-      labs(title = "Differentially Abundant Taxa - Log Fold Changes", x = "", y = "") +
-      theme_minimal(base_size = 12) +
-      theme(
-        plot.background = element_rect(fill = "#1a2332", color = NA),
-        panel.background = element_rect(fill = "#1a2332", color = NA),
-        legend.background = element_rect(fill = "#1a2332", color = NA),
-        legend.key = element_rect(fill = "#1a2332", color = NA),
-        text = element_text(color = "#e8ecf4"),
-        axis.text = element_text(color = "#8899b0"),
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-        axis.text.y = element_text(size = 9),
-        panel.grid = element_blank(),
-        plot.title = element_text(size = 14, face = "bold")
-      )
-  }
-
-  output$ancom_heatmap <- renderPlot({
-    req(rv$ancom_result)
-    make_ancom_heatmap(rv$ancom_result)
+    res <- rv$ancom_result$res_dunn
+    if (is.null(res) || nrow(res) == 0) return(NULL)
+    num_cols <- sapply(res, is.numeric)
+    res[num_cols] <- lapply(res[num_cols], round, 2)
+    datatable(res, options = list(pageLength = 15, scrollX = TRUE, dom = "frtip"),
+              rownames = FALSE, class = "compact",
+              caption = "ANCOM-BC2 Dunnett's Type of Test")
   })
 
   # ── ANCOM-BC2 download handlers ──
+  output$dl_ancom_primary <- downloadHandler(
+    filename = function() paste0("ANCOMBC2_primary_", Sys.Date(), ".csv"),
+    content = function(file) {
+      req(rv$ancom_result)
+      res <- rv$ancom_result$res
+      if (!is.null(res)) write.csv(res, file, row.names = FALSE)
+      else write.csv(data.frame(Note = "No results available"), file, row.names = FALSE)
+    }
+  )
+
   output$dl_ancom_global <- downloadHandler(
     filename = function() paste0("ANCOMBC2_global_test_", Sys.Date(), ".csv"),
     content = function(file) {
       req(rv$ancom_result)
       res <- rv$ancom_result$res_global
-      if (is.null(res) || nrow(res) == 0) res <- rv$ancom_result$res
-      if (!is.null(res)) write.csv(res, file, row.names = FALSE)
-      else write.csv(data.frame(Note = "No results available"), file, row.names = FALSE)
+      if (!is.null(res) && nrow(res) > 0) write.csv(res, file, row.names = FALSE)
+      else write.csv(data.frame(Note = "No global test results"), file, row.names = FALSE)
     }
   )
 
@@ -4545,28 +4465,18 @@ server <- function(input, output, session) {
     content = function(file) {
       req(rv$ancom_result)
       res <- rv$ancom_result$res_pair
-      if (is.null(res) || nrow(res) == 0) res <- rv$ancom_result$res
-      if (!is.null(res)) write.csv(res, file, row.names = FALSE)
-      else write.csv(data.frame(Note = "No results available"), file, row.names = FALSE)
+      if (!is.null(res) && nrow(res) > 0) write.csv(res, file, row.names = FALSE)
+      else write.csv(data.frame(Note = "No pairwise results"), file, row.names = FALSE)
     }
   )
 
-  output$dl_ancom_volcano <- downloadHandler(
-    filename = function() paste0("ANCOMBC2_volcano_", Sys.Date(), ".png"),
-    content = function(file) {
-      req(rv$ancom_result, input$ancom_volcano_comp)
-      p <- make_volcano_plot(rv$ancom_result, input$ancom_volcano_comp, input$ancom_alpha)
-      ggsave(file, plot = p, width = 10, height = 7, dpi = 300, bg = "#1a2332")
-    }
-  )
-
-  output$dl_ancom_heatmap <- downloadHandler(
-    filename = function() paste0("ANCOMBC2_heatmap_", Sys.Date(), ".png"),
+  output$dl_ancom_dunnet <- downloadHandler(
+    filename = function() paste0("ANCOMBC2_dunnet_", Sys.Date(), ".csv"),
     content = function(file) {
       req(rv$ancom_result)
-      p <- make_ancom_heatmap(rv$ancom_result)
-      ggsave(file, plot = p, width = 12, height = max(8, sum(rv$ancom_result$res_pair$diff_abn, na.rm = TRUE) * 0.3 + 4),
-             dpi = 300, bg = "#1a2332")
+      res <- rv$ancom_result$res_dunn
+      if (!is.null(res) && nrow(res) > 0) write.csv(res, file, row.names = FALSE)
+      else write.csv(data.frame(Note = "No Dunnett's test results"), file, row.names = FALSE)
     }
   )
 
