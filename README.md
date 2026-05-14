@@ -42,18 +42,13 @@ cd RAPID
 shiny::runApp("RAPID_16S.R")
 ```
 
-If you recieve an error related to file opening, please double check that `RAPID_16S.R` exists in your current working directory in R/Rstudio.
-
 Or launch the ITS app (Rstudio):
 
 ```r
 shiny::runApp("RAPID_ITS.R")
 ```
 
-If you receive an error related to file opening, please double check that `RAPID_ITS.R` exists in your current working directory in R/Rstudio.
-
-
-3. On first launch, all required R packages will be installed automatically. This may take several minutes.
+If you receive an error related to file opening, please double check that `RAPID_16S.R` and/or `RAPID_ITS.R` exists in your current working directory in R/Rstudio. On first launch, all required R packages will be installed automatically. This may take several minutes.
 
 ### Required Packages
 
