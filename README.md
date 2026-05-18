@@ -52,7 +52,7 @@ If you receive an error related to file opening, please double check that `RAPID
 
 ### Test datasets
 
-Please look at the instructions here for [soil 16S test datasets](test_datasets.md)
+Please look at the instructions here to download and analyze [soil 16S test datasets](test_datasets.md)
 
 ### Required Packages
 
