@@ -13,7 +13,7 @@ RAPID provides complete, code-free graphical interfaces for amplicon sequence an
 
 Both applications take raw paired-end Illumina FASTQ files as input and produce publication-ready figures, statistical test results, and downloadable data tables — all without writing a single line of code.
 
-![App start up window](../images/16S/00_start_up_new_analysis_or_resume.png)
+![App start up window](../../images/16S/00_start_up_new_analysis_or_resume.png)
 
 Please see below for more screenshots.
 
@@ -196,43 +196,43 @@ All pipeline state is saved automatically to your data directory after each step
 ## Screenshots
 
 ### Setup & File Detection
-![Setup Screenshot](images/16S/01_setup_and_files.png)
+![Setup Screenshot](../images/16S/01_setup_and_files.png)
 
 ### Quality Profiles
-![Quality Profiles Screenshot](images/16S/02_quality_plots_forward_reads.png)
+![Quality Profiles Screenshot](../images/16S/02_quality_plots_forward_reads.png)
 
 ### Filter & Trim
-![Filter Screenshot](images/16S/03_filter_and_trim.png)
+![Filter Screenshot](../images/16S/03_filter_and_trim.png)
 
 ### DADA2 Error Learning & Dereplication
-![Error Learning & Derep Screenshot](images/16S/04_DADA2_error_learning_algorithm_and_Dereplication.png)
+![Error Learning & Derep Screenshot](../images/16S/04_DADA2_error_learning_algorithm_and_Dereplication.png)
 
 ### Merge Reads & Remove Chimeras
-![Merge Reads & Remove Chimeras](images/16S/05_merge_reads_and_remove_chimeras.png)
+![Merge Reads & Remove Chimeras](../images/16S/05_merge_reads_and_remove_chimeras.png)
 
 ### Read tracking table
-![Read tracking screenshot](images/16S/05_read_tracking.png)
+![Read tracking screenshot](../images/16S/05_read_tracking.png)
 
 ### Assign taxonomy
-![Assign taxonomy screenshot](images/16S/06_assign_taxonomy.png)
+![Assign taxonomy screenshot](../images/16S/06_assign_taxonomy.png)
 
 ### Phyloseq & Data Transformation
-![Phyloseq Screenshot](images/16S/07_build_phyloseq_object.png)
+![Phyloseq Screenshot](../images/16S/07_build_phyloseq_object.png)
 
 ### Rarefaction curve
-![Rarefaction curve screenshot](images/16S/08_rarefaction_curve.png)
+![Rarefaction curve screenshot](../images/16S/08_rarefaction_curve.png)
 
 ### Alpha Diversity
-![Alpha Diversity Screenshot](images/16S/08_alpha_div_figure.png)
+![Alpha Diversity Screenshot](../images/16S/08_alpha_div_figure.png)
 
 ### Ordination (PCoA)
-![PCoA Screenshot](images/16S/08_ordination_PCOA_plot.png)
+![PCoA Screenshot](../images/16S/08_ordination_PCOA_plot.png)
 
 ### PERMANOVA
-![PERMANOVA Screenshot](images/16S/09_PERMANOVA.png)
+![PERMANOVA Screenshot](../images/16S/09_PERMANOVA.png)
 
 ### ANCOM-BC2
-![ANCOM-BC2 Screenshot](images/16S/10_ANCOM-BC2.png)
+![ANCOM-BC2 Screenshot](../images/16S/10_ANCOM-BC2.png)
 
 ---
 
