@@ -50,6 +50,10 @@ shiny::runApp("RAPID_ITS.R")
 
 If you receive an error related to file opening, please double check that `RAPID_16S.R` and/or `RAPID_ITS.R` exists in your current working directory in R/Rstudio. On first launch, all required R packages will be installed automatically. This may take several minutes.
 
+### Test datasets
+
+Please look at the instructions here for [soil 16S test datasets](test_datasets.md)
+
 ### Required Packages
 
 The apps automatically install missing packages on startup. The full dependency list:
